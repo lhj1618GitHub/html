@@ -10,7 +10,10 @@
 
 ***
 
-# 仓库文件预览方法
+仓库文件预览方法
 
-- GitHub：设置-pages-选择托管；来源选仓库；完成后链接：https://用户名.github.io/仓库名/完整文件名
-- gitee：
+- GitHub：`https://lhj1618.github.io/仓库名/完整文件名`
+
+1. 设置-pages-托管
+2. 来源-仓库
+3. 完成。链接格式：https://用户名.github.io/仓库名/完整文件名；
