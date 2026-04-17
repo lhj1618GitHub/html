@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSON/JSON5 转换格式化工具</title>
+    <title>JSON/JSON5 格式化工具</title>
     <style>
         * {
             box-sizing: border-box;
@@ -13,7 +13,8 @@
         }
         body {
             padding: 20px;
-            background: #f5f7fa;
+            background: #121212;
+            color: #e0e0e0;
         }
         .container {
             max-width: 1400px;
@@ -21,7 +22,7 @@
         }
         h1 {
             text-align: center;
-            color: #333;
+            color: #ffffff;
             margin-bottom: 20px;
             font-size: 24px;
         }
@@ -37,13 +38,31 @@
         }
         .panel-title {
             padding: 10px 15px;
-            background: #2c3e50;
+            background: #1e1e1e;
             color: white;
             border-radius: 6px 6px 0 0;
             font-weight: 500;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+            border: 1px solid #333;
+            border-bottom: none;
+        }
+        .panel-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            font-size: 13px;
+            font-weight: normal;
+        }
+        .cursor-pos {
+            color: #4dabf7;
+            font-weight: 500;
+        }
+        .error-msg {
+            color: #ff6b6b;
+            font-weight: 500;
         }
         .format-btns {
             display: flex;
@@ -65,14 +84,18 @@
             flex: 1;
             min-height: 500px;
             padding: 15px;
-            border: 1px solid #ddd;
+            border: 1px solid #333;
             border-top: none;
             border-radius: 0 0 6px 6px;
             resize: vertical;
             font-family: "Consolas", "Monaco", monospace;
             font-size: 14px;
             line-height: 1.5;
-            background: white;
+            background: #1e1e1e;
+            color: #e0e0e0;
+        }
+        textarea::placeholder {
+            color: #888;
         }
         .btn-group {
             display: flex;
@@ -96,7 +119,6 @@
         button:active {
             background: #1f618d;
         }
-        /* 新增文件导入按钮样式，与原有按钮统一 */
         .file-input-btn {
             position: relative;
             overflow: hidden;
@@ -118,213 +140,250 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: #1e1e1e;
+            border: 1px solid #333;
         }
         .status.valid {
-            background: #e8f5e9;
-            color: #2e7d32;
+            background: #1e3a1e;
+            color: #4caf50;
+            border-color: #2e7d32;
         }
         .status.invalid {
-            background: #ffebee;
-            color: #c62828;
+            background: #3a1e1e;
+            color: #f44336;
+            border-color: #c62828;
         }
-        .cursor-pos {
-            font-weight: 500;
+        .loading {
+            color: #ffc107;
+            font-weight: bold;
         }
         @media (max-width: 900px) {
             .editor-group {
                 flex-direction: column;
+            }
+            .panel-info {
+                flex-direction: column;
+                gap: 5px;
+                align-items: flex-start;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>JSON/JSON5 转换格式化工具</h1>
+        <h1>JSON/JSON5 格式化工具</h1>
         <div class="editor-group">
-            <!-- 输入区 -->
             <div class="editor-panel">
                 <div class="panel-title">
-                    输入 JSON/JSON5
-                    <div class="format-btns">
-                        <button class="format-btn" onclick="convertToJson()">→ JSON</button>
-                        <button class="format-btn" onclick="convertToJson5()">→ JSON5</button>
+                    <span>输入 JSON/JSON5</span>
+                    <div class="panel-info">
+                        <div class="format-btns">
+                            <button class="format-btn" onclick="convertToJson()">→ JSON</button>
+                            <button class="format-btn" onclick="convertToJson5()">→ JSON5</button>
+                        </div>
+                        <span class="cursor-pos" id="cursor-pos">光标位置：行:列</span>
                     </div>
                 </div>
                 <textarea id="input" placeholder="粘贴或输入JSON/JSON5内容...也可通过下方按钮导入本地文件"></textarea>
                 <div class="btn-group">
                     <button onclick="pasteInput()">📋 快捷粘贴</button>
                     <button onclick="clearInput()">🗑️ 清空输入</button>
-                    <!-- 新增：本地文件导入按钮 -->
                     <button class="file-input-btn">📁 导入本地文件
-                        <input type="file" id="fileInput" accept=".json,.json5,.txt" onchange="readLocalFile(this)">
+                        <input type="file" id="fileInput" onchange="readLocalFile(this)">
                     </button>
                 </div>
             </div>
-            <!-- 输出区 -->
             <div class="editor-panel">
-                <div class="panel-title">格式化结果</div>
+                <div class="panel-title">
+                    <span>格式化结果</span>
+                    <div class="panel-info">
+                        <span class="error-msg" id="error-msg"></span>
+                    </div>
+                </div>
                 <textarea id="output" readonly placeholder="格式化结果将显示在这里..."></textarea>
                 <div class="btn-group">
                     <button onclick="copyOutput()">📋 复制结果</button>
                     <button onclick="clearOutput()">🗑️ 清空结果</button>
+                    <button onclick="downloadFile()">⬇️ 下载文件</button>
                 </div>
             </div>
         </div>
-        <!-- 状态提示 + 光标位置 -->
         <div id="status" class="status">
             <span id="status-msg"></span>
-            <span class="cursor-pos" id="cursor-pos">光标位置：行:列</span>
         </div>
     </div>
-    <!-- 引入JSON5解析库 -->
-    <script src="https://cdn.jsdelivr.net/npm/json5@2.2.3/dist/index.min.js"></script>
+
+    <script src="https://gitee.com/lhj1618/GGKD/raw/master/todo/json5.js"></script>
     <script>
         const inputEl = document.getElementById('input');
         const outputEl = document.getElementById('output');
         const statusMsgEl = document.getElementById('status-msg');
         const cursorPosEl = document.getElementById('cursor-pos');
+        const errorMsgEl = document.getElementById('error-msg');
         const statusEl = document.getElementById('status');
-        // 实时监听输入与光标
+
+        // 分段加载配置（Android 低内存也不卡）
+        const CHUNK_SIZE = 1024 * 256; // 每次读 256KB
+        let isLoadingLargeFile = false;
+
         inputEl.addEventListener('input', formatJson);
         inputEl.addEventListener('click', updateCursorPos);
         inputEl.addEventListener('keyup', updateCursorPos);
         inputEl.addEventListener('focus', updateCursorPos);
-        // 格式化核心逻辑
+
+        // 默认输出 JSON5
         function formatJson() {
+            if (isLoadingLargeFile) return;
             const input = inputEl.value.trim();
             if (!input) {
                 outputEl.value = '';
                 setStatus('', 'valid');
+                setErrorMsg('');
                 updateCursorPos();
                 return;
             }
             try {
-                // 优先用JSON5解析（兼容JSON）
                 const parsed = JSON5.parse(input);
-                const formatted = JSON.stringify(parsed, null, 4);
+                const formatted = JSON5.stringify(parsed, null, 4);
                 outputEl.value = formatted;
                 setStatus('✅ JSON/JSON5 格式有效', 'valid');
+                setErrorMsg('');
             } catch (err) {
                 outputEl.value = '';
-                setStatus(`❌ 错误：${err.message}`, 'invalid');
+                setStatus('', 'valid');
+                setErrorMsg(`❌ ${err.message}`);
             }
             updateCursorPos();
         }
-        // 转换为标准JSON（去掉JSON5特性）
+
         function convertToJson() {
             const input = inputEl.value.trim();
-            if (!input) {
-                setStatus('❌ 无内容可转换', 'invalid');
-                return;
-            }
+            if (!input) { setErrorMsg('❌ 无内容可转换'); return; }
             try {
                 const parsed = JSON5.parse(input);
-                const jsonStr = JSON.stringify(parsed, null, 4);
-                outputEl.value = jsonStr;
+                outputEl.value = JSON.stringify(parsed, null, 4);
                 setStatus('✅ 已转为标准 JSON', 'valid');
-            } catch (err) {
-                setStatus(`❌ 转换失败：${err.message}`, 'invalid');
-            }
+                setErrorMsg('');
+            } catch (err) { setErrorMsg(`❌ 转换失败：${err.message}`); }
         }
-        // 转换为JSON5（保留注释、单引号、尾逗号等）
+
         function convertToJson5() {
             const input = inputEl.value.trim();
-            if (!input) {
-                setStatus('❌ 无内容可转换', 'invalid');
-                return;
-            }
+            if (!input) { setErrorMsg('❌ 无内容可转换'); return; }
             try {
                 const parsed = JSON5.parse(input);
-                // JSON5.stringify 生成JSON5格式（支持单引号、无引号键等）
-                const json5Str = JSON5.stringify(parsed, null, 4);
-                outputEl.value = json5Str;
+                outputEl.value = JSON5.stringify(parsed, null, 4);
                 setStatus('✅ 已转为 JSON5 格式', 'valid');
-            } catch (err) {
-                setStatus(`❌ 转换失败：${err.message}`, 'invalid');
-            }
+                setErrorMsg('');
+            } catch (err) { setErrorMsg(`❌ 转换失败：${err.message}`); }
         }
-        // 实时更新光标位置（行:列）
+
         function updateCursorPos() {
             const value = inputEl.value;
             const pos = inputEl.selectionStart;
-            // 计算行号与列号
             const lines = value.substring(0, pos).split('\n');
             const row = lines.length;
             const col = lines[lines.length - 1].length + 1;
             cursorPosEl.textContent = `光标位置：${row}:${col}`;
         }
-        // 输入框快捷粘贴
+
+        function setErrorMsg(msg) { errorMsgEl.textContent = msg; }
+
         async function pasteInput() {
             try {
                 const text = await navigator.clipboard.readText();
                 inputEl.value = text;
                 formatJson();
-            } catch (err) {
-                setStatus('❌ 粘贴失败：浏览器权限不足', 'invalid');
-            }
+                setErrorMsg('');
+            } catch (err) { setErrorMsg('❌ 粘贴失败：浏览器权限不足'); }
         }
-        // 输出框复制
+
         async function copyOutput() {
             const text = outputEl.value;
-            if (!text) {
-                setStatus('❌ 无内容可复制', 'invalid');
-                return;
-            }
+            if (!text) { setErrorMsg('❌ 无内容可复制'); return; }
             try {
                 await navigator.clipboard.writeText(text);
                 setStatus('✅ 复制成功！', 'valid');
                 setTimeout(() => setStatus('', 'valid'), 2000);
-            } catch (err) {
-                setStatus('❌ 复制失败', 'invalid');
-            }
+            } catch (err) { setErrorMsg('❌ 复制失败'); }
         }
-        // 清空输入
+
         function clearInput() {
             inputEl.value = '';
             formatJson();
+            setErrorMsg('');
         }
-        // 清空输出
+
         function clearOutput() {
             outputEl.value = '';
             setStatus('', 'valid');
+            setErrorMsg('');
         }
-        // 设置状态提示
+
+        function downloadFile() {
+            const content = outputEl.value.trim();
+            if (!content) { setErrorMsg('❌ 无内容可下载'); return; }
+            const blob = new Blob([content], { type: 'application/json5' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'formatted.json5';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                setStatus('✅ 下载完成', 'valid');
+                setTimeout(() => setStatus('', 'valid'), 2000);
+            }, 100);
+        }
+
         function setStatus(msg, type) {
             statusMsgEl.textContent = msg;
             statusEl.className = `status ${type}`;
         }
-        // 新增：读取本地JSON5/JSON/TXT文件核心逻辑
+
+        // ==============================================
+        // 核心：超大文件分段加载（Android 专用防卡顿）
+        // ==============================================
         function readLocalFile(fileInput) {
             const file = fileInput.files[0];
             if (!file) return;
-            // 校验文件类型（兼容json/json5/txt）
-            const validTypes = ['application/json', 'text/plain', 'application/json5'];
-            const validExts = ['.json', '.json5', '.txt'];
-            const fileExt = '.' + file.name.split('.').pop().toLowerCase();
-            if (!validTypes.includes(file.type) && !validExts.includes(fileExt)) {
-                setStatus('❌ 仅支持导入.json/.json5/.txt格式文件', 'invalid');
-                fileInput.value = ''; // 重置文件选择
-                return;
-            }
-            // 读取文件内容
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const content = e.target.result;
-                    inputEl.value = content; // 将文件内容写入输入框
-                    formatJson(); // 自动格式化
-                    setStatus(`✅ 成功导入文件：${file.name}`, 'valid');
-                } catch (err) {
-                    setStatus(`❌ 文件读取失败：${err.message}`, 'invalid');
-                }
-                fileInput.value = ''; // 重置文件选择，支持重复选择同一文件
+
+            isLoadingLargeFile = true;
+            inputEl.value = '';
+            setStatus(`⏳ 正在加载超大文件：${file.name}，请稍候...`, 'valid');
+            setErrorMsg('');
+
+            const fileReader = new FileReader();
+            let offset = 0;
+            const fileSize = file.size;
+
+            fileReader.onload = function (e) {
+                inputEl.value += e.target.result;
+                offset += CHUNK_SIZE;
+                loadNextChunk();
             };
-            reader.onerror = function() {
-                setStatus('❌ 文件读取异常，请检查文件是否损坏', 'invalid');
+
+            fileReader.onerror = function () {
+                isLoadingLargeFile = false;
+                setErrorMsg('❌ 文件读取失败');
                 fileInput.value = '';
             };
-            // 以文本方式读取文件
-            reader.readAsText(file, 'UTF-8');
+
+            function loadNextChunk() {
+                if (offset >= fileSize) {
+                    isLoadingLargeFile = false;
+                    setStatus(`✅ 加载完成：${file.name}`, 'valid');
+                    formatJson();
+                    fileInput.value = '';
+                    return;
+                }
+                const slice = file.slice(offset, offset + CHUNK_SIZE);
+                fileReader.readAsText(slice, 'UTF-8');
+            }
+
+            loadNextChunk();
         }
     </script>
 </body>
