@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地文件编辑器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", monospace;
+        }
+        body {
+            background-color: #000;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .toolbar {
+            padding: 12px;
+            background-color: #1a1a1a;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #2d2d2d;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        button:hover {
+            background-color: #444;
+        }
+        #fileInput {
+            display: none;
+        }
+        #editor {
+            flex: 1;
+            width: 100%;
+            padding: 15px;
+            background-color: #000;
+            color: #ffffff; /* 已改为白色 */
+            border: none;
+            outline: none;
+            resize: none;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .filename {
+            color: #ccc;
+            font-size: 14px;
+            margin-left: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button id="openBtn">打开本地文件</button>
+        <button id="saveBtn">保存文件</button>
+        <span class="filename" id="fileName">未打开文件</span>
+    </div>
+
+    <textarea id="editor" placeholder="请打开文件或直接编辑内容..."></textarea>
+    <input type="file" id="fileInput" accept=".txt,.md,.html,.json,.json5,.ts">
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const editor = document.getElementById('editor');
+        const saveBtn = document.getElementById('saveBtn');
+        const openBtn = document.getElementById('openBtn');
+        const fileName = document.getElementById('fileName');
+        
+        let currentFile = '';
+
+        openBtn.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const allowedTypes = ['txt', 'md', 'html', 'json', 'json5', 'ts'];
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!allowedTypes.includes(ext)) {
+                alert('仅支持：txt、md、html、json、json5、ts');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                editor.value = event.target.result;
+                currentFile = file.name;
+                fileName.textContent = `当前文件：${currentFile}`;
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        saveBtn.addEventListener('click', () => {
+            const content = editor.value.trim();
+            if (!content) {
+                alert('编辑内容不能为空！');
+                return;
+            }
+
+            const saveFileName = currentFile || 'untitled.txt';
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = saveFileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            alert('文件保存成功！');
+        });
+    </script>
+</body>
+</html>
