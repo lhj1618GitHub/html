@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>维修记录快速存档系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        /* 全局黑色背景 + 自适应宽度 */
+        body {
+            background-color: #000000;
+            padding: 20px;
+            width: 100%;
+            min-height: 100vh;
+        }
+
+        .title {
+            text-align: center;
+            color: #ffffff;
+            margin-bottom: 24px;
+            font-size: 22px;
+        }
+
+        /* 卡片容器：自适应宽度 */
+        .record-box, .query-box {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 12px rgba(255,255,255,0.05);
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .form-item {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+        }
+
+        label {
+            width: 110px;
+            font-weight: bold;
+            color: #e0e0e0;
+            padding-top: 10px;
+            flex-shrink: 0;
+        }
+
+        .input-wrap{
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        /* 深色输入框 */
+        input, textarea {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #444;
+            background: #262626;
+            color: #fff;
+            border-radius: 5px;
+            font-size: 14px;
+            min-width: 0;
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: #888;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* 时间显示 */
+        .time-show {
+            padding: 10px 15px;
+            background: #262626;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            color: #ff3b30;
+            min-width: 200px;
+        }
+
+        /* 清空按钮 */
+        .clear-btn{
+            padding: 8px 12px;
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .clear-btn:hover{
+            background: #444;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 16px;
+            padding-left: 110px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 11px 22px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .save-btn {
+            background: #28a745;
+            color: white;
+        }
+
+        .query-btn {
+            background: #007bff;
+            color: white;
+        }
+
+        /* 查询区域 */
+        .query-box {
+            display: none;
+        }
+
+        .query-tip {
+            color: #b0b0b0;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .query-result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #222;
+            border-radius: 5px;
+            min-height: 100px;
+            color: #fff;
+        }
+
+        .result-item {
+            padding: 12px;
+            border-bottom: 1px solid #333;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #ff3b30;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .no-data {
+            color: #777;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">维修记录快速存档系统</h1>
+
+    <div class="record-box" id="recordArea">
+        <div class="form-item">
+            <label>报修时间：</label>
+            <span class="time-show" id="currentTime"></span>
+        </div>
+
+        <div class="form-item">
+            <label>机台号：</label>
+            <div class="input-wrap">
+                <input type="text" id="machineId" placeholder="请输入机台号（文字+数字，如：注塑机A01）">
+                <button class="clear-btn" onclick="clearItem('machineId')">清空</button>
+            </div>
+        </div>
+
+        <div class="form-item">
+            <label>总维修时间：</label>
+            <div class="input-wrap">
+                <input type="text" id="repairTime" placeholder="请输入总维修时间（如：30分钟、2小时）">
+                <button class="clear-btn" onclick="clearItem('repairTime')">清空</button>
+            </div>
+        </div>
+
+        <div class="form-item">
+            <label>异常问题描述：</label>
+            <div class="input-wrap">
+                <textarea id="problem" placeholder="请描述设备异常问题"></textarea>
+                <button class="clear-btn" onclick="clearItem('problem')">清空</button>
+            </div>
+        </div>
+
+        <div class="form-item">
+            <label>维修内容：</label>
+            <div class="input-wrap">
+                <textarea id="content" placeholder="请描述具体维修内容"></textarea>
+                <button class="clear-btn" onclick="clearItem('content')">清空</button>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button class="save-btn" onclick="saveRecord()">保存维修记录</button>
+            <button class="query-btn" onclick="showQuery()">记录查询</button>
+        </div>
+    </div>
+
+    <div class="query-box" id="queryArea">
+        <div class="form-item">
+            <label>查询日期：</label>
+            <div class="input-wrap">
+                <input type="date" id="queryDate">
+                <button class="clear-btn" onclick="clearItem('queryDate')">清空</button>
+            </div>
+        </div>
+
+        <div class="form-item">
+            <label>机台号：</label>
+            <div class="input-wrap">
+                <input type="text" id="queryMachineId" placeholder="留空则查询所有机台">
+                <button class="clear-btn" onclick="clearItem('queryMachineId')">清空</button>
+            </div>
+        </div>
+
+        <button class="query-btn" onclick="searchRecord()">执行查询</button>
+        <button style="background: #666;color: white;margin-left: 10px;" onclick="backRecord()">返回记录</button>
+
+        <div class="query-result" id="resultBox">
+            请选择查询条件并点击查询
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            getCurrentTime();
+            document.getElementById('queryDate').value = '';
+        }
+
+        // 单独清空输入框
+        function clearItem(id){
+            document.getElementById(id).value = '';
+        }
+
+        // 获取当前时间
+        function getCurrentTime() {
+            let now = new Date();
+            let month = (now.getMonth() + 1).toString().padStart(2, '0');
+            let day = now.getDate().toString().padStart(2, '0');
+            let week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()];
+            let hour = now.getHours().toString().padStart(2, '0');
+            let minute = now.getMinutes().toString().padStart(2, '0');
+            let timeStr = `${month}-${day} ${week} ${hour}:${minute}`;
+            document.getElementById('currentTime').innerText = timeStr;
+        }
+
+        // 保存记录
+        function saveRecord() {
+            let time = document.getElementById('currentTime').innerText;
+            let machineId = document.getElementById('machineId').value.trim();
+            let repairTime = document.getElementById('repairTime').value.trim();
+            let problem = document.getElementById('problem').value.trim();
+            let content = document.getElementById('content').value.trim();
+
+            if(!machineId || !repairTime || !problem || !content) {
+                alert("请填写完整信息！");
+                return;
+            }
+
+            let date = new Date().toISOString().split('T')[0];
+            let record = { date, time, machineId, repairTime, problem, content };
+
+            let records = JSON.parse(localStorage.getItem('repairRecords') || '[]');
+            records.unshift(record);
+            localStorage.setItem('repairRecords', JSON.stringify(records));
+
+            document.getElementById('machineId').value = '';
+            document.getElementById('repairTime').value = '';
+            document.getElementById('problem').value = '';
+            document.getElementById('content').value = '';
+
+            alert("维修记录保存成功！");
+            getCurrentTime();
+        }
+
+        // 界面切换
+        function showQuery() {
+            document.getElementById('recordArea').style.display = 'none';
+            document.getElementById('queryArea').style.display = 'block';
+        }
+        function backRecord() {
+            document.getElementById('queryArea').style.display = 'none';
+            document.getElementById('recordArea').style.display = 'block';
+        }
+
+        // 查询记录
+        function searchRecord() {
+            let queryDate = document.getElementById('queryDate').value.trim();
+            let queryMachineId = document.getElementById('queryMachineId').value.trim();
+            let resultBox = document.getElementById('resultBox');
+            let records = JSON.parse(localStorage.getItem('repairRecords') || '[]');
+            let result = [];
+
+            if(queryDate && queryMachineId) {
+                result = records.filter(item => item.date === queryDate && item.machineId.includes(queryMachineId));
+            } else if(queryDate) {
+                result = records.filter(item => item.date === queryDate);
+            } else if(queryMachineId) {
+                result = records.filter(item => item.machineId.includes(queryMachineId));
+            } else {
+                result = records;
+            }
+
+            if(result.length === 0) {
+                resultBox.innerHTML = '<div class="no-data">未查询到符合条件的维修记录</div>';
+                return;
+            }
+
+            let html = '';
+            result.forEach((item, index) => {
+                html += `
+                    <div class="result-item">
+                        <button class="delete-btn" onclick="deleteRecord(${index})">删除</button>
+                        <p><strong>记录 ${index+1}</strong></p>
+                        <p>时间：${item.time}</p>
+                        <p>机台号：${item.machineId}</p>
+                        <p>维修时长：${item.repairTime}</p>
+                        <p>异常问题：${item.problem}</p>
+                        <p>维修内容：${item.content}</p>
+                    </div>
+                `;
+            });
+            resultBox.innerHTML = html;
+        }
+
+        // 删除单条记录
+        function deleteRecord(index) {
+            if(!confirm("确定要删除这条记录吗？删除后无法恢复！")) return;
+            
+            let records = JSON.parse(localStorage.getItem('repairRecords') || '[]');
+            records.splice(index, 1);
+            localStorage.setItem('repairRecords', JSON.stringify(records));
+            searchRecord();
+            alert("记录已删除！");
+        }
+    </script>
+</body>
+</html>
