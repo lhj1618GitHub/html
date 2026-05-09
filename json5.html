@@ -202,8 +202,8 @@
                 </div>
                 <textarea id="output" readonly placeholder="格式化结果将显示在这里..."></textarea>
                 <div class="btn-group">
+                    <button onclick="toggleDisplay()">🔄 切换显示</button>
                     <button onclick="copyOutput()">📋 复制结果</button>
-                    <button onclick="clearOutput()">🗑️ 清空结果</button>
                     <button onclick="downloadFile()">⬇️ 下载文件</button>
                 </div>
             </div>
@@ -212,7 +212,6 @@
             <span id="status-msg"></span>
         </div>
     </div>
-
     <script src="https://gitee.com/lhj1618/GGKD/raw/master/todo/json5.js"></script>
     <script>
         const inputEl = document.getElementById('input');
@@ -221,9 +220,13 @@
         const cursorPosEl = document.getElementById('cursor-pos');
         const errorMsgEl = document.getElementById('error-msg');
         const statusEl = document.getElementById('status');
+        
+        // 优化：记录当前格式类型 + 切换状态
+        let isCompact = false;
+        let lastParsed = null;
+        let currentFormat = 'json5'; // json / json5
 
-        // 分段加载配置（Android 低内存也不卡）
-        const CHUNK_SIZE = 1024 * 256; // 每次读 256KB
+        const CHUNK_SIZE = 1024 * 256;
         let isLoadingLargeFile = false;
 
         inputEl.addEventListener('input', formatJson);
@@ -231,12 +234,14 @@
         inputEl.addEventListener('keyup', updateCursorPos);
         inputEl.addEventListener('focus', updateCursorPos);
 
-        // 默认输出 JSON5
+        // 默认格式化（JSON5）
         function formatJson() {
             if (isLoadingLargeFile) return;
             const input = inputEl.value.trim();
             if (!input) {
                 outputEl.value = '';
+                lastParsed = null;
+                currentFormat = 'json5';
                 setStatus('', 'valid');
                 setErrorMsg('');
                 updateCursorPos();
@@ -244,34 +249,65 @@
             }
             try {
                 const parsed = JSON5.parse(input);
-                const formatted = JSON5.stringify(parsed, null, 4);
-                outputEl.value = formatted;
+                lastParsed = parsed;
+                currentFormat = 'json5';
+                isCompact = false;
+                outputEl.value = JSON5.stringify(parsed, null, 4);
                 setStatus('✅ JSON/JSON5 格式有效', 'valid');
                 setErrorMsg('');
             } catch (err) {
                 outputEl.value = '';
+                lastParsed = null;
                 setStatus('', 'valid');
                 setErrorMsg(`❌ ${err.message}`);
             }
             updateCursorPos();
         }
 
+        // ✅ 核心优化：智能切换显示（自动匹配当前格式）
+        function toggleDisplay() {
+            if (!lastParsed) {
+                setErrorMsg('❌ 暂无有效内容可切换显示');
+                return;
+            }
+            isCompact = !isCompact;
+            
+            if (currentFormat === 'json') {
+                // 当前是 JSON 格式：保持 JSON 标准
+                outputEl.value = isCompact ? JSON.stringify(lastParsed) : JSON.stringify(lastParsed, null, 4);
+                setStatus(isCompact ? '🔄 JSON【紧凑模式】' : '🔄 JSON【展开模式】', 'valid');
+            } else {
+                // 当前是 JSON5 格式：保持 JSON5 格式
+                outputEl.value = isCompact ? JSON5.stringify(lastParsed) : JSON5.stringify(lastParsed, null, 4);
+                setStatus(isCompact ? '🔄 JSON5【紧凑模式】' : '🔄 JSON5【展开模式】', 'valid');
+            }
+            setTimeout(() => setStatus('', 'valid'), 2000);
+        }
+
+        // 转换为标准 JSON
         function convertToJson() {
             const input = inputEl.value.trim();
             if (!input) { setErrorMsg('❌ 无内容可转换'); return; }
             try {
                 const parsed = JSON5.parse(input);
+                lastParsed = parsed;
+                currentFormat = 'json'; // 标记当前为 JSON 格式
+                isCompact = false;
                 outputEl.value = JSON.stringify(parsed, null, 4);
                 setStatus('✅ 已转为标准 JSON', 'valid');
                 setErrorMsg('');
             } catch (err) { setErrorMsg(`❌ 转换失败：${err.message}`); }
         }
 
+        // 转换为 JSON5
         function convertToJson5() {
             const input = inputEl.value.trim();
             if (!input) { setErrorMsg('❌ 无内容可转换'); return; }
             try {
                 const parsed = JSON5.parse(input);
+                lastParsed = parsed;
+                currentFormat = 'json5'; // 标记当前为 JSON5 格式
+                isCompact = false;
                 outputEl.value = JSON5.stringify(parsed, null, 4);
                 setStatus('✅ 已转为 JSON5 格式', 'valid');
                 setErrorMsg('');
@@ -314,11 +350,7 @@
             setErrorMsg('');
         }
 
-        function clearOutput() {
-            outputEl.value = '';
-            setStatus('', 'valid');
-            setErrorMsg('');
-        }
+        function clearOutput() {}
 
         function downloadFile() {
             const content = outputEl.value.trim();
@@ -327,7 +359,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'formatted.json5';
+            a.download = currentFormat === 'json' ? 'formatted.json' : 'formatted.json5';
             document.body.appendChild(a);
             a.click();
             setTimeout(() => {
@@ -343,34 +375,26 @@
             statusEl.className = `status ${type}`;
         }
 
-        // ==============================================
-        // 核心：超大文件分段加载（Android 专用防卡顿）
-        // ==============================================
         function readLocalFile(fileInput) {
             const file = fileInput.files[0];
             if (!file) return;
-
             isLoadingLargeFile = true;
             inputEl.value = '';
             setStatus(`⏳ 正在加载超大文件：${file.name}，请稍候...`, 'valid');
             setErrorMsg('');
-
             const fileReader = new FileReader();
             let offset = 0;
             const fileSize = file.size;
-
             fileReader.onload = function (e) {
                 inputEl.value += e.target.result;
                 offset += CHUNK_SIZE;
                 loadNextChunk();
             };
-
             fileReader.onerror = function () {
                 isLoadingLargeFile = false;
                 setErrorMsg('❌ 文件读取失败');
                 fileInput.value = '';
             };
-
             function loadNextChunk() {
                 if (offset >= fileSize) {
                     isLoadingLargeFile = false;
@@ -382,7 +406,6 @@
                 const slice = file.slice(offset, offset + CHUNK_SIZE);
                 fileReader.readAsText(slice, 'UTF-8');
             }
-
             loadNextChunk();
         }
     </script>
