@@ -9,6 +9,8 @@
 - [追剧进度管理器](https://lhj1618github.github.io/html/追剧进度管理器.html) - 本地记录剧集进度-观看地址-更新周期等；
 - [维修记录](https://lhj1618github.github.io/html/维修记录.html) - 设备维修登记
 - [创建GKD订阅文件](https://lhj1618github.github.io/html/创建GKD订阅文件.html) - 含json5格式化/合并规则文件自动生成订阅文件，可修改版本号
+- [出勤和薪资计算](https://lhj1618github.github.io/html/出勤和薪资计算.html)
+
 
 ***
 
