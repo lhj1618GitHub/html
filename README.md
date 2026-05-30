@@ -8,7 +8,7 @@
 - [本地记录存档系统](https://lhj1618github.github.io/html/本地记录存档系统.html) - 本地文字记录，类似记事本，可检索记录；
 - [追剧进度管理器](https://lhj1618github.github.io/html/追剧进度管理器.html) - 本地记录剧集进度-观看地址-更新周期等；
 - [维修记录](https://lhj1618github.github.io/html/维修记录.html) - 设备维修登记
-- [创建GKD订阅文件](https://lhj1618github.github.io/html/创建GKD订阅文件.html) - 含json5格式化/合并规则文件自动生成订阅文件，可修改版本号
+- [GKD订阅文件工具](https://lhj1618github.github.io/html/GKD订阅文件工具.html) - 含创建和可视化编辑功能；支持手机端。需下载并导入本仓库文件(apps文件夹内文件。含sample.json5样本文件)，支持json5格式化，支持格式 md txt ts json json5 html 
 - [出勤和薪资计算](https://lhj1618github.github.io/html/出勤和薪资计算.html)
 
 
