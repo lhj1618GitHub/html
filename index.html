@@ -1,0 +1,197 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人实用工具集</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #f3f4f6;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .icon-bg {
+            background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+                    <i class="fa-solid fa-toolbox text-lg"></i>
+                </div>
+                <h1 class="text-xl font-bold text-gray-800 tracking-tight">实用工具箱</h1>
+            </div>
+            <div class="text-sm text-gray-500 hidden sm:block">
+                本地化高效助手
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-4 py-12 max-w-7xl">
+        
+        <!-- Intro Section -->
+        <div class="text-center mb-12">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4 gradient-text">精选效率工具</h2>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                汇集李跳跳规则管理、GKD订阅生成、本地文本编辑及生活记录管理等实用Web应用，所有数据均在本地处理，安全便捷。
+            </p>
+        </div>
+
+        <!-- Grid Layout -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="tools-grid">
+            <!-- Cards will be injected here by JS for cleaner structure, but hardcoded below for single file requirement compliance if needed. 
+                 However, using JS to render makes it easier to manage. Let's hardcode HTML for simplicity and SEO friendliness as requested. -->
+            
+            <!-- Card 1: 李跳跳自定义规则工具 -->
+            <a href="https://lhj1618github.github.io/html/LiTT.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-robot text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">李跳跳自定义规则工具</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">快速生成和定制李跳跳应用的跳过规则，提升使用体验。</p>
+                </div>
+            </a>
+
+            <!-- Card 2: 李跳跳进阶指南 -->
+            <a href="https://lhj1618github.github.io/html/李跳跳进阶指南.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-indigo-600 mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-book-open text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-indigo-600 transition-colors">李跳跳进阶指南</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">深入了解李跳跳的高级用法与配置技巧，发挥最大效能。</p>
+                </div>
+            </a>
+
+            <!-- Card 3: json5格式化查错工具 -->
+            <a href="https://lhj1618github.github.io/html/json5.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-emerald-600 mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-code text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-emerald-600 transition-colors">JSON5 格式化查错</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">专为GKD规则整理设计，支持JSON5语法高亮、格式化与错误检查。</p>
+                </div>
+            </a>
+
+            <!-- Card 4: 本地文本编辑器 -->
+            <a href="https://lhj1618github.github.io/html/文本编辑器.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-amber-600 mb-4 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-pen-to-square text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-amber-600 transition-colors">本地文本编辑器</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">适用于手机端的轻量级Text文件编辑器，支持新建、修改与保存。</p>
+                </div>
+            </a>
+
+            <!-- Card 5: 本地记录存档系统 -->
+            <a href="https://lhj1618github.github.io/html/本地记录存档系统.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-cyan-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-cyan-600 mb-4 group-hover:bg-cyan-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-box-archive text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-cyan-600 transition-colors">本地记录存档系统</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">类似记事本的本地文字记录工具，支持快速检索历史存档。</p>
+                </div>
+            </a>
+
+            <!-- Card 6: 追剧进度管理器 -->
+            <a href="https://lhj1618github.github.io/html/追剧进度管理器.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-rose-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-rose-600 mb-4 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-film text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-rose-600 transition-colors">追剧进度管理器</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">记录剧集观看进度、更新周期及观看地址，追剧不再乱。</p>
+                </div>
+            </a>
+
+            <!-- Card 7: 维修记录 -->
+            <a href="https://lhj1618github.github.io/html/维修记录.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-slate-600 mb-4 group-hover:bg-slate-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-screwdriver-wrench text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-slate-600 transition-colors">设备维修记录</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">登记设备维修历史、费用及详情，方便后续查询与管理。</p>
+                </div>
+            </a>
+
+            <!-- Card 8: 创建GKD订阅文件 -->
+            <a href="https://lhj1618github.github.io/html/创建GKD订阅文件.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-violet-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-violet-600 mb-4 group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-file-code text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-violet-600 transition-colors">创建 GKD 订阅文件</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">集成JSON5格式化与规则合并，自动生成带版本号的GKD订阅文件。</p>
+                </div>
+            </a>
+
+            <!-- Card 9: 出勤和薪资计算 -->
+            <a href="https://lhj1618github.github.io/html/出勤和薪资计算.html" target="_blank" class="group block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 rounded-lg icon-bg flex items-center justify-center text-orange-600 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-calculator text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-orange-600 transition-colors">出勤和薪资计算</h3>
+                    <p class="text-sm text-gray-500 line-clamp-2">简易计算器，帮助统计出勤天数并估算对应薪资收入。</p>
+                </div>
+            </a>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p class="text-gray-500 text-sm">
+                &copy; 2026 个人工具集. All rights reserved.
+            </p>
+            <div class="flex space-x-4">
+                <span class="text-gray-400 text-xs">Local First Design</span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
