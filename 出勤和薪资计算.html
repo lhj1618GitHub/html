@@ -1,515 +1,122 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>出勤加班薪资计算器</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: "Microsoft YaHei", sans-serif;
-        }
-        body {
-            background-color: #000;
-            color: #fff;
-            padding: 15px;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-        .tab-container {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .tab-btn {
-            padding: 8px 16px;
-            background: #222;
-            color: #fff;
-            border: 1px solid #444;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .tab-btn.active {
-            background: #0066cc;
-            border-color: #0088ff;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .card {
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 12px;
-        }
-        .card-title {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: #00ddff;
-            border-left: 3px solid #0088ff;
-            padding-left: 8px;
-        }
-        .form-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-            flex-wrap: wrap;
-        }
-        label {
-            min-width: 100px;
-            font-size: 14px;
-        }
-        input, select {
-            padding: 6px 8px;
-            background: #222;
-            color: #fff;
-            border: 1px solid #444;
-            border-radius: 4px;
-            flex: 1;
-            min-width: 120px;
-        }
-        button {
-            padding: 6px 12px;
-            background: #0066cc;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #0088ff;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            margin-top: 10px;
-        }
-        th, td {
-            border: 1px solid #333;
-            padding: 6px;
-            text-align: center;
-        }
-        th {
-            background: #222;
-            color: #00ddff;
-        }
-        tr:nth-child(even) {
-            background: #181818;
-        }
-        .stat-num {
-            color: #ffcc00;
-            font-weight: bold;
-        }
-        .salary-total {
-            font-size: 18px;
-            color: #00ff88;
-            font-weight: bold;
-        }
-        .del-btn {
-            background: #cc0000;
-        }
-        .tip {
-            color: #0f0;
-            margin: 8px 0;
-            font-weight: bold;
-            height: 20px;
-        }
-        .config-btn {
-            background: #6600cc;
-            margin-left:10px;
-        }
-        .back-btn {
-            background: #28a745;
-            margin-left:8px;
-        }
-        .title-row{
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>出勤加班薪资计算器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",sans-serif}
+body{background:#000;color:#fff;padding:15px;max-width:900px;margin:0 auto}
+.tab-container{display:flex;gap:8px;margin-bottom:15px;flex-wrap:wrap}
+.tab-btn{padding:8px 16px;background:#222;color:#fff;border:1px solid #444;border-radius:4px;cursor:pointer}
+.tab-btn.active{background:#0066cc;border-color:#0088ff}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.card{background:#111;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:12px}
+.card-title{font-size:16px;margin-bottom:10px;color:#00ddff;border-left:3px solid #0088ff;padding-left:8px}
+.form-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+label{min-width:100px;font-size:14px}
+input,select{padding:6px 8px;background:#222;color:#fff;border:1px solid #444;border-radius:4px;flex:1;min-width:120px}
+button{padding:6px 12px;background:#0066cc;color:#fff;border:none;border-radius:4px;cursor:pointer}
+button:hover{background:#0088ff}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+th,td{border:1px solid #333;padding:6px;text-align:center}
+th{background:#222;color:#00ddff}
+tr:nth-child(even){background:#181818}
+.stat-num{color:#ffcc00;font-weight:700}
+.salary-total{font-size:18px;color:#00ff88;font-weight:700}
+.del-btn{background:#cc0000}
+.tip{color:#0f0;margin:8px 0;font-weight:700;height:20px}
+.config-btn{background:#6600cc;margin-left:10px}
+.back-btn{background:#28a745;margin-left:8px}
+.title-row{display:flex;align-items:center;justify-content:space-between}
+</style>
 </head>
 <body>
-    <div id="tabBar" class="tab-container">
-        <button class="tab-btn active" onclick="switchTab('record')">每日出勤登记</button>
-        <button class="tab-btn" onclick="switchTab('stats')">月度统计</button>
-        <button class="tab-btn" onclick="switchTab('salary')">薪资计算</button>
-    </div>
-
-    <!-- 每日出勤登记 -->
-    <div id="record" class="tab-content active">
-        <div class="card">
-            <div class="card-title">当日出勤信息录入</div>
-            <div class="form-row">
-                <label>日期</label>
-                <input type="date" id="recordDate" required>
-            </div>
-            <div class="form-row">
-                <label>出勤状态</label>
-                <select id="workStatus" onchange="toggleLeaveHours()">
-                    <option value="正常">正常出勤</option>
-                    <option value="请假">请假</option>
-                    <option value="调休">调休</option>
-                </select>
-            </div>
-            <div class="form-row" id="leaveHoursRow" style="display:none;">
-                <label>请假/调休时长(小时)</label>
-                <input type="number" id="leaveHours" min="0" step="0.5" value="8">
-            </div>
-            <div class="form-row">
-                <label>班次类型</label>
-                <select id="shiftType">
-                    <option value="白班">白班</option>
-                    <option value="夜班">夜班</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label>加班时长(小时)</label>
-                <input type="number" id="overtimeHours" min="0" step="0.5" value="0">
-            </div>
-            <div class="form-row">
-                <label>加班类型</label>
-                <select id="overtimeType">
-                    <option value="1.5">工作日(1.5倍)</option>
-                    <option value="2">休息日(2倍)</option>
-                    <option value="3">法定假日(3倍)</option>
-                </select>
-            </div>
-            <button onclick="saveRecord()" style="margin-top:10px;">保存当日记录</button>
-            <div id="saveTip" class="tip"></div>
-        </div>
-    </div>
-
-    <!-- 月度统计 -->
-    <div id="stats" class="tab-content">
-        <div class="card">
-            <div class="card-title">月度出勤/加班汇总</div>
-            <div id="monthStats"></div>
-        </div>
-        <div class="card">
-            <div class="card-title">本月出勤记录列表</div>
-            <div id="recordList"></div>
-        </div>
-    </div>
-
-    <!-- 薪资计算（包含配置） -->
-    <div id="salary" class="tab-content">
-        <!-- 薪资计算结果 (默认显示) -->
-        <div id="salaryResultPanel">
-            <div class="card">
-                <div class="title-row">
-                    <div class="card-title">本月薪资明细</div>
-                    <button class="config-btn" onclick="showConfig()">薪资配置</button>
-                </div>
-                <div id="salaryResult"></div>
-            </div>
-        </div>
-
-        <!-- 薪资配置区域 (默认隐藏) -->
-        <div id="salarySettingPanel" style="display:none;">
-            <div class="card">
-                <div class="card-title">薪资基础设置</div>
-                <div class="form-row">
-                    <label>月基本工资</label>
-                    <input type="number" id="baseSalary" min="0" value="0" oninput="autoCalcHourSalary()">
-                </div>
-                <div class="form-row">
-                    <label>月固定补贴</label>
-                    <input type="number" id="subsidy" min="0" value="0">
-                </div>
-                <div class="form-row">
-                    <label>月度奖金</label>
-                    <input type="number" id="bonus" min="0" value="0">
-                </div>
-                <div class="form-row">
-                    <label>全勤奖金</label>
-                    <input type="number" id="fullAttendBonus" min="0" value="0">
-                </div>
-                <div class="form-row">
-                    <label>小时工资(自动)</label>
-                    <input type="number" id="hourSalary" readonly>
-                </div>
-                <div class="form-row">
-                    <label>夜班每日补贴</label>
-                    <input type="number" id="nightSubsidy" min="0" value="0">
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">五险一金扣费</div>
-                <div class="form-row"><label>养老保险</label><input type="number" id="endowment" value="400"></div>
-                <div class="form-row"><label>医疗保险</label><input type="number" id="medical" value="100"></div>
-                <div class="form-row"><label>失业保险</label><input type="number" id="unemployment" value="20"></div>
-                <div class="form-row"><label>工伤保险</label><input type="number" id="injury" value="0"></div>
-                <div class="form-row"><label>生育保险</label><input type="number" id="maternity" value="0"></div>
-                <div class="form-row"><label>住房公积金</label><input type="number" id="fund" value="500"></div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">其他扣费项目</div>
-                <div class="form-row"><label>餐费扣除</label><input type="number" id="meal" value="0"></div>
-                <div class="form-row"><label>其他杂项扣款</label><input type="number" id="deduct" value="0"></div>
-                <button onclick="saveSetting()" style="margin-top:10px;">保存配置</button>
-                <button class="back-btn" onclick="showSalary()">← 返回薪资计算</button>
-                <div id="setTip" class="tip"></div>
-            </div>
-        </div>
-    </div>
-
+<div id="tabBar" class="tab-container">
+<button class="tab-btn active" onclick="switchTab('record')">每日出勤登记</button>
+<button class="tab-btn" onclick="switchTab('stats')">月度统计</button>
+<button class="tab-btn" onclick="switchTab('salary')">薪资计算</button>
+</div>
+<div id="record" class="tab-content active">
+<div class="card">
+<div class="card-title">当日出勤信息录入</div>
+<div class="form-row"><label>日期</label><input type="date" id="recordDate" required></div>
+<div class="form-row"><label>出勤状态</label><select id="workStatus" onchange="toggleLeaveHours()"><option value="正常">正常出勤</option><option value="请假">请假</option><option value="调休">调休</option><option value="放假">放假</option></select></div>
+<div class="form-row" id="leaveHoursRow" style="display:none"><label>请假/调休时长(小时)</label><input type="number" id="leaveHours" min="0" step="0.5" value="8"></div>
+<div class="form-row"><label>班次类型</label><select id="shiftType"><option value="白班">白班</option><option value="夜班">夜班</option></select></div>
+<div class="form-row"><label>加班1时长(小时)</label><input type="number" id="overtimeHours1" min="0" step="0.5" value="0"></div>
+<div class="form-row"><label>加班1类型</label><select id="overtimeType1"><option value="1.5">工作日(1.5倍)</option><option value="2">休息日(2倍)</option><option value="3">法定假日(3倍)</option></select></div>
+<div class="form-row"><label>加班2时长(小时)</label><input type="number" id="overtimeHours2" min="0" step="0.5" value="0"></div>
+<div class="form-row"><label>加班2类型</label><select id="overtimeType2"><option value="1.5">工作日(1.5倍)</option><option value="2">休息日(2倍)</option><option value="3">法定假日(3倍)</option></select></div>
+<button onclick="saveRecord()" style="margin-top:10px">保存当日记录</button>
+<div id="saveTip" class="tip"></div>
+</div>
+</div>
+<div id="stats" class="tab-content">
+<div class="card"><div class="card-title">月度出勤/加班汇总</div><div id="monthStats"></div></div>
+<div class="card"><div class="card-title">本月出勤记录列表</div><div id="recordList"></div></div>
+</div>
+<div id="salary" class="tab-content">
+<div id="salaryResultPanel">
+<div class="card">
+<div class="title-row"><div class="card-title">本月薪资明细</div><button class="config-btn" onclick="showConfig()">薪资配置</button></div>
+<div id="salaryResult"></div>
+</div>
+</div>
+<div id="salarySettingPanel" style="display:none">
+<div class="card"><div class="card-title">薪资基础设置</div>
+<div class="form-row"><label>月基本工资</label><input type="number" id="baseSalary" min="0" value="5000" oninput="autoCalcHourSalary()"></div>
+<div class="form-row"><label>月固定补贴</label><input type="number" id="subsidy" min="0" value="500"></div>
+<div class="form-row"><label>月度奖金</label><input type="number" id="bonus" min="0" value="0"></div>
+<div class="form-row"><label>全勤奖金</label><input type="number" id="fullAttendBonus" min="0" value="200"></div>
+<div class="form-row"><label>小时工资(自动)</label><input type="number" id="hourSalary" readonly></div>
+<div class="form-row"><label>夜班每日补贴</label><input type="number" id="nightSubsidy" min="0" value="30"></div>
+</div>
+<div class="card"><div class="card-title">五险一金扣费</div>
+<div class="form-row"><label>养老保险</label><input type="number" id="endowment" value="400"></div>
+<div class="form-row"><label>医疗保险</label><input type="number" id="medical" value="100"></div>
+<div class="form-row"><label>失业保险</label><input type="number" id="unemployment" value="20"></div>
+<div class="form-row"><label>工伤保险</label><input type="number" id="injury" value="0"></div>
+<div class="form-row"><label>生育保险</label><input type="number" id="maternity" value="0"></div>
+<div class="form-row"><label>住房公积金</label><input type="number" id="fund" value="500"></div>
+</div>
+<div class="card"><div class="card-title">其他扣费项目</div>
+<div class="form-row"><label>餐费扣除</label><input type="number" id="meal" value="300"></div>
+<div class="form-row"><label>其他杂项扣款</label><input type="number" id="deduct" value="0"></div>
+<button onclick="saveSetting()" style="margin-top:10px">保存配置</button>
+<button class="back-btn" onclick="showSalary()">← 返回薪资计算</button>
+<div id="setTip" class="tip"></div>
+</div>
+</div>
+</div>
 <script>
-const STANDARD_DAYS = 21.75;
-const STANDARD_HOURS_PER_DAY = 8;
-
-let data = {
-    records: [],
-    setting: {
-        baseSalary: 0,
-        subsidy: 0,
-        bonus: 0,
-        fullAttendBonus:0,
-        hourSalary: 0,
-        nightSubsidy: 0,
-        endowment:0, medical:0, unemployment:0,
-        injury:0, maternity:0, fund:0,
-        meal:0, deduct:0
-    }
-};
-
-// 提示自动消失
-function showTip(msg){
-    const el = document.getElementById("saveTip");
-    el.innerText = msg;
-    setTimeout(()=>el.innerText="",1000);
-}
-function showSetTip(msg){
-    const el = document.getElementById("setTip");
-    el.innerText = msg;
-    setTimeout(()=>el.innerText="",1000);
-}
-
-// 显示配置面板，隐藏薪资明细 + 隐藏顶部标签栏
-function showConfig(){
-    document.getElementById("salarySettingPanel").style.display = "block";
-    document.getElementById("salaryResultPanel").style.display = "none";
-    document.getElementById("tabBar").style.display = "none";
-}
-
-// 显示薪资明细，隐藏配置面板 + 显示顶部标签栏
-function showSalary(){
-    document.getElementById("salarySettingPanel").style.display = "none";
-    document.getElementById("salaryResultPanel").style.display = "block";
-    document.getElementById("tabBar").style.display = "flex";
-}
-
-// 请假时长显示切换
-function toggleLeaveHours(){
-    const st = document.getElementById("workStatus").value;
-    const row = document.getElementById("leaveHoursRow");
-    row.style.display = (st==="请假"||st==="调休")?"flex":"none";
-}
-
-// 读取本地数据
-function loadData(){
-    let d = localStorage.getItem("attendanceData");
-    if(d) data = JSON.parse(d);
-    renderAll();
-}
-
-// 保存到本地
-function saveData(){
-    localStorage.setItem("attendanceData",JSON.stringify(data));
-}
-
-// 自动计算小时工资
-function autoCalcHourSalary(){
-    let base = parseFloat(document.getElementById("baseSalary").value)||0;
-    let hour = base/(STANDARD_DAYS*STANDARD_HOURS_PER_DAY);
-    document.getElementById("hourSalary").value = hour.toFixed(3);
-}
-
-// 标签切换
-function switchTab(id){
-    document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));
-    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
-    document.getElementById(id).classList.add("active");
-    event.target.classList.add("active");
-}
-
-// 保存出勤记录
-function saveRecord(){
-    let date = document.getElementById("recordDate").value;
-    let status = document.getElementById("workStatus").value;
-    let leaveHours = (status==="请假"||status==="调休")?parseFloat(document.getElementById("leaveHours").value)||0:0;
-    let shift = document.getElementById("shiftType").value;
-    let overtimeHours = parseFloat(document.getElementById("overtimeHours").value)||0;
-    let overtimeType = parseFloat(document.getElementById("overtimeType").value);
-    if(!date){showTip("❌ 请选择日期");return;}
-    data.records = data.records.filter(r=>r.date!==date);
-    data.records.push({date,status,leaveHours,shift,overtimeHours,overtimeType});
-    saveData();
-    renderAll();
-    showTip("✅ 保存成功！");
-}
-
-// 删除记录
-function deleteRecord(date){
-    data.records = data.records.filter(r=>r.date!==date);
-    saveData();
-    renderAll();
-    showTip("🗑️ 删除成功");
-}
-
-// 统一刷新
-function renderAll(){
-    renderList();
-    renderStats();
-    renderSalary();
-}
-
-// 渲染记录列表
-function renderList(){
-    let list = document.getElementById("recordList");
-    let arr = [...data.records].sort((a,b)=>new Date(a.date)-new Date(b.date));
-    if(arr.length===0){list.innerHTML="<p>暂无记录</p>";return;}
-    let html = `<table>
-<tr><th>日期</th><th>状态</th><th>时长</th><th>班次</th><th>加班详情</th><th>操作</th></tr>`;
-    arr.forEach(r=>{
-        let leaveText = r.status==="正常"?"-":(r.leaveHours+"h");
-        let overtimeText = r.overtimeHours>0?`${r.overtimeHours}h(${r.overtimeType}倍)`:"-";
-        html += `<tr>
-<td>${r.date}</td>
-<td>${r.status}</td>
-<td>${leaveText}</td>
-<td>${r.shift}</td>
-<td>${overtimeText}</td>
-<td><button class="del-btn" onclick="deleteRecord('${r.date}')">删除</button></td>
-</tr>`;
-    });
-    html += "</table>";
-    list.innerHTML = html;
-}
-
-// 渲染统计
-function renderStats(){
-    let r = data.records;
-    let normal=0,leave=0,rest=0,night=0,ot15=0,ot2=0,ot3=0,totalOt=0;
-    r.forEach(i=>{
-        if(i.status==="正常")normal++;
-        if(i.status==="请假")leave++;
-        if(i.status==="调休")rest++;
-        if(i.shift==="夜班")night++;
-        totalOt += i.overtimeHours;
-        if(i.overtimeType===1.5)ot15+=i.overtimeHours;
-        if(i.overtimeType===2)ot2+=i.overtimeHours;
-        if(i.overtimeType===3)ot3+=i.overtimeHours;
-    });
-    document.getElementById("monthStats").innerHTML = `
-<p>正常：${normal} 天 | 请假：${leave} | 调休：${rest}</p>
-<p>夜班：${night} 天</p>
-<p>总加班：${totalOt.toFixed(1)}h</p>
-<p>1.5倍：${ot15.toFixed(1)}h | 2倍：${ot2.toFixed(1)}h | 3倍：${ot3.toFixed(1)}h</p>`;
-}
-
-// 保存薪资配置
-function saveSetting(){
-    data.setting = {
-        baseSalary:parseFloat(document.getElementById("baseSalary").value)||0,
-        subsidy:parseFloat(document.getElementById("subsidy").value)||0,
-        bonus:parseFloat(document.getElementById("bonus").value)||0,
-        fullAttendBonus:parseFloat(document.getElementById("fullAttendBonus").value)||0,
-        hourSalary:parseFloat(document.getElementById("hourSalary").value)||0,
-        nightSubsidy:parseFloat(document.getElementById("nightSubsidy").value)||0,
-        endowment:parseFloat(document.getElementById("endowment").value)||0,
-        medical:parseFloat(document.getElementById("medical").value)||0,
-        unemployment:parseFloat(document.getElementById("unemployment").value)||0,
-        injury:parseFloat(document.getElementById("injury").value)||0,
-        maternity:parseFloat(document.getElementById("maternity").value)||0,
-        fund:parseFloat(document.getElementById("fund").value)||0,
-        meal:parseFloat(document.getElementById("meal").value)||0,
-        deduct:parseFloat(document.getElementById("deduct").value)||0
-    };
-    saveData();
-    renderSalary();
-    showSetTip("✅ 配置保存成功");
-}
-
-// 渲染薪资
-function renderSalary(){
-    let s = data.setting;
-    let r = data.records;
-    let h = s.hourSalary;
-
-    // 全勤奖：有请假则为0
-    let hasLeave = r.some(item=>item.status==="请假");
-    let fullBonus = hasLeave ? 0 : s.fullAttendBonus;
-
-    // 夜班补贴
-    let nightDays = r.filter(x=>x.shift==="夜班").length;
-    let nightPay = nightDays * s.nightSubsidy;
-
-    // 加班工资
-    let ot15=0,ot2=0,ot3=0;
-    r.forEach(i=>{
-        if(i.overtimeHours>0){
-            if(i.overtimeType===1.5)ot15+=i.overtimeHours;
-            if(i.overtimeType===2)ot2+=i.overtimeHours;
-            if(i.overtimeType===3)ot3+=i.overtimeHours;
-        }
-    });
-    let ot15Pay = ot15*h*1.5;
-    let ot2Pay = ot2*h*2;
-    let ot3Pay = ot3*h*3;
-    let totalOtPay = ot15Pay+ot2Pay+ot3Pay;
-
-    // 请假扣款
-    let totalLeaveHours=0;
-    r.forEach(i=>{
-        if(i.status==="请假"&&i.leaveHours>0)totalLeaveHours+=i.leaveHours;
-    });
-    let leaveDeduct = totalLeaveHours*h;
-
-    // 总计
-    let preTotal = s.baseSalary+s.subsidy+s.bonus+fullBonus+nightPay+totalOtPay-leaveDeduct;
-    let socialTotal = s.endowment+s.medical+s.unemployment+s.injury+s.maternity+s.fund;
-    let totalDeduct = socialTotal+s.meal+s.deduct;
-    let net = preTotal-totalDeduct;
-
-    document.getElementById("salaryResult").innerHTML = `
-<p>基本工资：${s.baseSalary.toFixed(2)}</p>
-<p>固定补贴：${s.subsidy.toFixed(2)} | 月度奖金：${s.bonus.toFixed(2)}</p>
-<p>全勤奖金：${fullBonus.toFixed(2)}</p>
-<p>夜班补贴：${nightPay.toFixed(2)}</p>
-<hr style="margin:6px 0;border-color:#333;">
-<p><strong>加班工资明细</strong></p>
-<p>1.5倍加班：${ot15Pay.toFixed(2)} 元</p>
-<p>2倍加班：${ot2Pay.toFixed(2)} 元</p>
-<p>3倍加班：${ot3Pay.toFixed(2)} 元</p>
-<p>加班合计：${totalOtPay.toFixed(2)}</p>
-<hr style="margin:6px 0;border-color:#333;">
-<p>请假扣款（${totalLeaveHours}h）：<span class="stat-num">-${leaveDeduct.toFixed(2)}</span></p>
-<p>税前总收入：${preTotal.toFixed(2)}</p>
-<hr style="margin:6px 0;border-color:#333;">
-<p>五险一金合计：${socialTotal.toFixed(2)}</p>
-<p>其他扣费合计：${(s.meal+s.deduct).toFixed(2)}</p>
-<p class="salary-total">实发工资：${net.toFixed(2)} 元</p>`;
-}
-
-// 初始化
-window.onload = function(){
-    loadData();
-    document.getElementById("recordDate").valueAsDate = new Date();
-    autoCalcHourSalary();
-    toggleLeaveHours();
-};
+const sd=21.75,sh=8;let d={records:[],setting:{baseSalary:5000,subsidy:500,bonus:0,fullAttendBonus:200,hourSalary:0,nightSubsidy:30,endowment:400,medical:100,unemployment:20,injury:0,maternity:0,fund:500,meal:300,deduct:0}};
+function t(e,i){const o=document.getElementById(e);o.innerText=i;setTimeout(()=>o.innerText="",3000)}
+function showConfig(){document.getElementById("salarySettingPanel").style.display="block";document.getElementById("salaryResultPanel").style.display="none";document.getElementById("tabBar").style.display="none"}
+function showSalary(){document.getElementById("salarySettingPanel").style.display="none";document.getElementById("salaryResultPanel").style.display="block";document.getElementById("tabBar").style.display="flex"}
+function toggleLeaveHours(){const e=document.getElementById("workStatus").value;document.getElementById("leaveHoursRow").style.display=(e==="请假"||e==="调休")?"flex":"none"}
+function loadData(){let e=localStorage.getItem("attendanceData");if(e)d=JSON.parse(e);r()}
+function saveData(){localStorage.setItem("attendanceData",JSON.stringify(d))}
+function autoCalcHourSalary(){let e=parseFloat(document.getElementById("baseSalary").value)||0;document.getElementById("hourSalary").value=(e/(sd*sh)).toFixed(3)}
+function switchTab(e){document.querySelectorAll(".tab-content").forEach(o=>o.classList.remove("active"));document.querySelectorAll(".tab-btn").forEach(o=>o.classList.remove("active"));document.getElementById(e).classList.add("active");event.target.classList.add("active")}
+function saveRecord(){let e=document.getElementById("recordDate").value;if(!e){t("saveTip","❌ 请选择日期");return}
+let s=document.getElementById("workStatus").value,n=(s==="请假"||s==="调休")?parseFloat(document.getElementById("leaveHours").value)||0:0,i=document.getElementById("shiftType").value;
+let o=parseFloat(document.getElementById("overtimeHours1").value)||0,r=parseFloat(document.getElementById("overtimeType1").value);
+let a=parseFloat(document.getElementById("overtimeHours2").value)||0,l=parseFloat(document.getElementById("overtimeType2").value);
+d.records=d.records.filter(c=>c.date!==e);d.records.push({date:e,status:s,leaveHours:n,shift:i,overtimeHours1:o,overtimeType1:r,overtimeHours2:a,overtimeType2:l});saveData();r();t("saveTip","✅ 保存成功！")}
+function deleteRecord(e){d.records=d.records.filter(o=>o.date!==e);saveData();r();t("saveTip","🗑️ 删除成功")}
+function r(){p();m();g()}
+function p(){let e=document.getElementById("recordList"),s=[...d.records].sort((o,r)=>new Date(o.date)-new Date(r.date));if(s.length===0){e.innerHTML="<p>暂无记录</p>";return}
+let n="<table><tr><th>日期</th><th>状态</th><th>时长</th><th>班次</th><th>加班详情</th><th>操作</th></tr>";s.forEach(o=>{let i=o.status==="正常"||o.status==="放假"?"-":(o.leaveHours+"h");let c=o.overtimeHours1>0?`${o.overtimeHours1}h(${o.overtimeType1}倍)`:"";let a=o.overtimeHours2>0?`${o.overtimeHours2}h(${o.overtimeType2}倍)`:"";let l=[c,a].filter(Boolean).join(" + ")||"-";n+=`<tr><td>${o.date}</td><td>${o.status}</td><td>${i}</td><td>${o.shift}</td><td>${l}</td><td><button class="del-btn" onclick="deleteRecord('${o.date}')">删除</button></td></tr>`});n+="</table>";e.innerHTML=n}
+function m(){let e=d.records,s=0,n=0,i=0,c=0,o=0,r=0,a=0,l=0,h=0;e.forEach(u=>{if(u.status==="正常")s++;if(u.status==="请假")n++;if(u.status==="调休")i++;if(u.status==="放假")c++;if(u.shift==="夜班")o++;
+function f(u,p){if(u>0){h+=u;if(p===1.5)r+=u;if(p===2)a+=u;if(p===3)l+=u}}f(u.overtimeHours1,u.overtimeType1);f(u.overtimeHours2,u.overtimeType2)});
+document.getElementById("monthStats").innerHTML=`<p>正常：${s} 天 | 请假：${n} | 调休：${i} | 放假：${c}</p><p>夜班：${o} 天</p><p>总加班：${h.toFixed(1)}h</p><p>1.5倍：${r.toFixed(1)}h | 2倍：${a.toFixed(1)}h | 3倍：${l.toFixed(1)}h</p>`}
+function saveSetting(){d.setting={baseSalary:parseFloat(document.getElementById("baseSalary").value)||0,subsidy:parseFloat(document.getElementById("subsidy").value)||0,bonus:parseFloat(document.getElementById("bonus").value)||0,fullAttendBonus:parseFloat(document.getElementById("fullAttendBonus").value)||0,hourSalary:parseFloat(document.getElementById("hourSalary").value)||0,nightSubsidy:parseFloat(document.getElementById("nightSubsidy").value)||0,endowment:parseFloat(document.getElementById("endowment").value)||0,medical:parseFloat(document.getElementById("medical").value)||0,unemployment:parseFloat(document.getElementById("unemployment").value)||0,injury:parseFloat(document.getElementById("injury").value)||0,maternity:parseFloat(document.getElementById("maternity").value)||0,fund:parseFloat(document.getElementById("fund").value)||0,meal:parseFloat(document.getElementById("meal").value)||0,deduct:parseFloat(document.getElementById("deduct").value)||0};saveData();g();t("setTip","✅ 配置保存成功")}
+function g(){let s=d.setting,n=d.records,i=s.hourSalary;let c=n.some(o=>o.status==="请假")?0:s.fullAttendBonus,o=n.filter(r=>r.shift==="夜班").length*s.nightSubsidy;let r=0,a=0,l=0;function h(u,p){if(u>0){if(p===1.5)r+=u;if(p===2)a+=u;if(p===3)l+=u}}n.forEach(u=>{h(u.overtimeHours1,u.overtimeType1);h(u.overtimeHours2,u.overtimeType2)});
+let f=r*i*1.5,v=a*i*2,u=l*i*3,y=f+v+u;let w=0;n.forEach(p=>{if(p.status==="请假"&&p.leaveHours>0)w+=p.leaveHours});let T=w*i;let E=s.baseSalary+s.subsidy+s.bonus+c+o+y-T;let S=s.endowment+s.medical+s.unemployment+s.injury+s.maternity+s.fund;let D=S+s.meal+s.deduct;let H=E-D;
+document.getElementById("salaryResult").innerHTML=`<p>基本工资：${s.baseSalary.toFixed(2)}</p><p>固定补贴：${s.subsidy.toFixed(2)} | 月度奖金：${s.bonus.toFixed(2)}</p><p>全勤奖金：${c.toFixed(2)}</p><p>夜班补贴：${o.toFixed(2)}</p><hr style="margin:6px 0;border-color:#333;"><p><strong>加班工资明细</strong></p><p>1.5倍加班：${f.toFixed(2)} 元</p><p>2倍加班：${v.toFixed(2)} 元</p><p>3倍加班：${u.toFixed(2)} 元</p><p>加班合计：${y.toFixed(2)}</p><hr style="margin:6px 0;border-color:#333;"><p>请假扣款（${w}h）：<span class="stat-num">-${T.toFixed(2)}</span></p><p>税前总收入：${E.toFixed(2)}</p><hr style="margin:6px 0;border-color:#333;"><p>五险一金合计：${S.toFixed(2)}</p><p>其他扣费合计：${(s.meal+s.deduct).toFixed(2)}</p><p class="salary-total">实发工资：${H.toFixed(2)} 元</p>`}
+window.onload=function(){loadData();document.getElementById("recordDate").valueAsDate=new Date();autoCalcHourSalary();toggleLeaveHours()}
 </script>
 </body>
 </html>
