@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GitHub项目版本检测&下载工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        body {
+            padding: 10px;
+            background-color: #121212;
+            color: #e5e7eb;
+            font-size: 14px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        h2 {
+            color: #ffffff;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .operate-bar {
+            margin: 0 0 15px 0;
+            text-align: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+        .add-box {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #2d2d2d;
+            border-radius: 6px;
+        }
+        .add-box input {
+            flex: 1 1 180px;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 14px;
+            background: #333;
+            color: #fff;
+            outline: none;
+        }
+        .add-box input:focus {
+            border-color: #0969da;
+        }
+        button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+            color: #fff;
+            white-space: nowrap;
+        }
+        .btn-add {
+            background: #2ea44f;
+        }
+        .btn-add:hover {
+            background: #2c974b;
+        }
+        .btn-check-all {
+            background: #0969da;
+        }
+        .btn-check-all:hover {
+            background: #085fc1;
+        }
+        .btn-export {
+            background: #7c3aed;
+        }
+        .btn-import {
+            background: #06b6d4;
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            min-width: 600px;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px 8px;
+            text-align: left;
+            border: 1px solid #444;
+            font-size: 13px;
+        }
+        th {
+            background: #2d2d2d;
+            color: #ffffff;
+        }
+        tr:nth-child(even) {
+            background: #252525;
+        }
+        tr:hover {
+            background: #333;
+        }
+        .new-version {
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+        .no-new {
+            color: #4ade80;
+        }
+        .error {
+            color: #fbbf24;
+        }
+        .ver-edit {
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        /* 项目名称：可点击复制样式 */
+        .name-copy {
+            cursor: pointer;
+            color: #61dafb;
+        }
+        .name-copy:hover {
+            text-decoration: underline;
+        }
+        .download-btn {
+            background: #0969da;
+            padding: 5px 10px;
+            margin: 2px;
+            font-size: 12px;
+        }
+        .del-btn {
+            background: #6e7781;
+            padding: 5px 10px;
+            margin: 2px;
+            font-size: 12px;
+        }
+        .sync-btn {
+            background: #8b5cf6;
+            padding: 5px 10px;
+            margin: 2px;
+            font-size: 12px;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            padding: 10px;
+        }
+        .modal-content {
+            background: #1e1e1e;
+            padding: 18px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 480px;
+            border: 1px solid #444;
+        }
+        .modal-content h3 {
+            margin-bottom: 15px;
+            color: #ffffff;
+            font-size: 16px;
+        }
+        .modal-item {
+            margin-bottom: 15px;
+        }
+        .modal-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #ccc;
+        }
+        .modal-item input {
+            width: 100%;
+            padding: 10px;
+            background: #333;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+        }
+        .modal-btn-group {
+            text-align: right;
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .save-btn {
+            background: #2ea44f;
+        }
+        .cancel-btn {
+            background: #6e7781;
+        }
+        .file-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            gap: 6px;
+        }
+        .file-item input[type="checkbox"] {
+            flex-shrink: 0;
+            vertical-align: middle;
+        }
+        .file-name {
+            flex: 1;
+            overflow: hidden;
+            text-align: left;
+            direction: rtl;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .file-name span {
+            direction: ltr;
+        }
+        .copy-link-btn {
+            background: #3b82f6;
+            padding: 4px 8px;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        .download-all-selected {
+            background: #2ea44f;
+            margin-top: 15px;
+            width: 100%;
+        }
+        .time-text {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+        #importFile {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>GitHub 项目版本检测&下载工具</h2>
+
+        <div class="operate-bar">
+            <button class="btn-import" onclick="document.getElementById('importFile').click()">导入记录</button>
+            <button class="btn-export" onclick="exportToTxt()">导出记录</button>
+            <input type="file" id="importFile" accept=".txt,.json" onchange="importFromTxt(event)">
+            <button class="btn-check-all" onclick="checkAllVersion()">批量检测版本</button>
+        </div>
+
+        <div class="add-box">
+            <input type="text" id="repoUrl" placeholder="请输入GitHub Releases链接">
+            <input type="text" id="localVersion" placeholder="本地当前版本（可为空）">
+            <button class="btn-add" onclick="addItem()">添加项目</button>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>项目名称</th>
+                        <th>本地版本</th>
+                        <th>最新版本</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="5" style="text-align: center;color:#999;">暂无数据，请添加项目</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <h3>编辑项目信息</h3>
+            <div class="modal-item">
+                <label>GitHub Releases 完整链接</label>
+                <input type="text" id="editUrl">
+            </div>
+            <div class="modal-item">
+                <label>本地版本关键字（可为空）</label>
+                <input type="text" id="editVer">
+            </div>
+            <div class="modal-btn-group">
+                <button class="save-btn" onclick="saveEdit()">保存</button>
+                <button class="cancel-btn" onclick="closeModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="downloadModal">
+        <div class="modal-content">
+            <h3>选择下载文件</h3>
+            <div id="fileList"></div>
+            <button class="download-all-selected" onclick="batchDownload()">下载选中文件</button>
+            <div class="modal-btn-group" style="margin-top:10px;">
+                <button class="cancel-btn" onclick="closeDownloadModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'github_version_list';
+        let dataList = [];
+        let currentEditIndex = -1;
+        let currentDownloadIndex = -1;
+
+        window.onload = function() {
+            const localData = localStorage.getItem(STORAGE_KEY);
+            if (localData) {
+                dataList = JSON.parse(localData);
+                renderTable();
+            }
+        };
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dataList));
+        }
+
+        function getProjectName(url) {
+            const match = url.match(/github\.com\/[^/]+\/([^/]+)/);
+            return match ? match[1] : "未知项目";
+        }
+
+        function formatDate(isoStr) {
+            if (!isoStr) return '';
+            return isoStr.split('T')[0];
+        }
+
+        // 核心：点击项目名称复制对应链接
+        async function copyRepoUrl(index) {
+            const url = dataList[index].url;
+            try {
+                await navigator.clipboard.writeText(url);
+                alert('已复制链接：' + url);
+            } catch (err) {
+                // 降级兼容
+                const textarea = document.createElement('textarea');
+                textarea.value = url;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('已复制链接：' + url);
+            }
+        }
+
+        function addItem() {
+            const url = document.getElementById('repoUrl').value.trim();
+            const localVer = document.getElementById('localVersion').value.trim();
+            if (!url) {
+                alert('GitHub Releases 链接不能为空！');
+                return;
+            }
+            if (!url.includes('github.com') || !url.includes('/releases')) {
+                alert('请输入合法的 GitHub Releases 链接！');
+                return;
+            }
+            const exist = dataList.some(item => item.url === url);
+            if (exist) {
+                alert('该项目已存在列表中！');
+                return;
+            }
+            dataList.push({
+                url: url,
+                localVersion: localVer,
+                latestVersion: '',
+                publishTime: '',
+                status: '待检测',
+                assets: []
+            });
+            saveData();
+            renderTable();
+            document.getElementById('repoUrl').value = '';
+            document.getElementById('localVersion').value = '';
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            if (dataList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;color:#999;">暂无数据，请添加项目</td>';
+                return;
+            }
+            let html = '';
+            dataList.forEach((item, index) => {
+                let statusClass = '';
+                if (item.status === '有新版本') statusClass = 'new-version';
+                else if (item.status === '已是最新') statusClass = 'no-new';
+                else if (item.status.includes('失败')) statusClass = 'error';
+
+                let latestHtml = item.latestVersion || '-';
+                if (item.publishTime) {
+                    latestHtml += `<div class="time-text">发布: ${item.publishTime}</div>`;
+                }
+                const localVerHtml = `<span class="ver-edit" onclick="openEdit(${index})">${item.localVersion || '未填写'}</span>`;
+
+                html += `
+                <tr>
+                    <td><span class="name-copy" onclick="copyRepoUrl(${index})">${getProjectName(item.url)}</span></td>
+                    <td>${localVerHtml}</td>
+                    <td>${latestHtml}</td>
+                    <td class="${statusClass}">${item.status}</td>
+                    <td>
+                        <button class="download-btn" onclick="openDownload(${index})">下载</button>
+                        <button class="sync-btn" onclick="syncVersion(${index})">同步版本</button>
+                        <button class="del-btn" onclick="delItem(${index})">删除</button>
+                    </td>
+                </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function openEdit(index) {
+            currentEditIndex = index;
+            const item = dataList[index];
+            document.getElementById('editUrl').value = item.url;
+            document.getElementById('editVer').value = item.localVersion;
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+            currentEditIndex = -1;
+        }
+
+        function saveEdit() {
+            const newUrl = document.getElementById('editUrl').value.trim();
+            const newVer = document.getElementById('editVer').value.trim();
+            if (!newUrl) {
+                alert('GitHub Releases 链接不能为空！');
+                return;
+            }
+            if (!newUrl.includes('github.com') || !newUrl.includes('/releases')) {
+                alert('请输入合法的 GitHub Releases 链接！');
+                return;
+            }
+            const isRepeat = dataList.some((item, idx) => idx !== currentEditIndex && item.url === newUrl);
+            if (isRepeat) {
+                alert('该链接已存在于其他项目中！');
+                return;
+            }
+            dataList[currentEditIndex].url = newUrl;
+            dataList[currentEditIndex].localVersion = newVer;
+            dataList[currentEditIndex].latestVersion = '';
+            dataList[currentEditIndex].publishTime = '';
+            dataList[currentEditIndex].status = '待检测';
+            dataList[currentEditIndex].assets = [];
+            saveData();
+            renderTable();
+            closeModal();
+        }
+
+        function syncVersion(index) {
+            const item = dataList[index];
+            if (!item.latestVersion) {
+                alert('请先检测版本！');
+                return;
+            }
+            item.localVersion = item.latestVersion;
+            item.status = '已是最新';
+            saveData();
+            renderTable();
+        }
+
+        function openDownload(index) {
+            currentDownloadIndex = index;
+            const item = dataList[index];
+            if (!item.assets || item.assets.length === 0) {
+                alert('暂无可下载文件，请先检测版本！');
+                return;
+            }
+            let fileHtml = '';
+            item.assets.forEach((file, idx) => {
+                fileHtml += `
+                    <div class="file-item">
+                        <input type="checkbox" id="file_${idx}" value="${file.url}">
+                        <div class="file-name"><span>${file.name}</span></div>
+                        <button class="copy-link-btn" onclick="copyLink('${file.url}')">复制链接</button>
+                    </div>
+                `;
+            });
+            document.getElementById('fileList').innerHTML = fileHtml;
+            document.getElementById('downloadModal').style.display = 'flex';
+        }
+
+        async function copyLink(url) {
+            try {
+                await navigator.clipboard.writeText(url);
+                alert('链接复制成功！');
+            } catch (err) {
+                const input = document.createElement('input');
+                input.value = url;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                alert('链接复制成功！');
+            }
+        }
+
+        function closeDownloadModal() {
+            document.getElementById('downloadModal').style.display = 'none';
+            currentDownloadIndex = -1;
+        }
+
+        function batchDownload() {
+            const checkboxes = document.querySelectorAll('#fileList input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('请至少选择一个文件！');
+                return;
+            }
+            checkboxes.forEach(cb => window.open(cb.value, '_blank'));
+        }
+
+        function delItem(index) {
+            dataList.splice(index, 1);
+            saveData();
+            renderTable();
+        }
+
+        async function checkAllVersion() {
+            if (dataList.length === 0) {
+                alert('暂无需要检测的项目！');
+                return;
+            }
+            for (let i = 0; i < dataList.length; i++) {
+                const item = dataList[i];
+                item.status = '检测中...';
+                renderTable();
+                try {
+                    const repoMatch = item.url.match(/github\.com\/([^/]+)\/([^/]+)/);
+                    if (!repoMatch) {
+                        item.status = '链接解析失败';
+                        renderTable();
+                        continue;
+                    }
+                    const owner = repoMatch[1];
+                    const repo = repoMatch[2];
+                    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+                    const res = await fetch(apiUrl);
+                    if (!res.ok) throw new Error('接口失败');
+                    const releaseData = await res.json();
+                    const latestTag = releaseData.tag_name;
+                    const publishDate = formatDate(releaseData.published_at);
+                    const assets = releaseData.assets.map(asset => ({
+                        name: asset.name,
+                        url: asset.browser_download_url
+                    }));
+                    item.latestVersion = latestTag;
+                    item.publishTime = publishDate;
+                    item.assets = assets;
+                    item.status = (!item.localVersion || latestTag !== item.localVersion) ? '有新版本' : '已是最新';
+                } catch (err) {
+                    item.status = '检测失败（网络/权限）';
+                }
+                saveData();
+                renderTable();
+                await sleep(800);
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // ========== 导出：标准 JSON 格式（双引号、浏览器原生支持） ==========
+        function exportToTxt() {
+            try {
+                // 仅保留核心字段导出
+                const exportData = dataList.map(item => ({
+                    url: item.url,
+                    localVersion: item.localVersion || ''
+                }));
+                // 标准格式化 JSON
+                const jsonStr = JSON.stringify(exportData, null, 2);
+
+                const blob = new Blob([jsonStr], { type: 'text/plain;charset=utf-8' });
+                const fileUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = fileUrl;
+                a.download = `config_${Date.now()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(fileUrl);
+                alert('配置导出成功');
+            } catch (e) {
+                alert('导出失败：' + e.message);
+            }
+        }
+
+        // ========== 导入：标准 JSON 解析，稳定无报错 ==========
+        function importFromTxt(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    let text = ev.target.result.trim();
+                    // 直接原生解析标准 JSON
+                    const importData = JSON.parse(text);
+
+                    if (!Array.isArray(importData)) {
+                        throw new Error('文件不是数组格式');
+                    }
+
+                    let addCount = 0;
+                    importData.forEach(importItem => {
+                        if (!importItem.url) return;
+                        const exists = dataList.some(d => d.url === importItem.url);
+                        if (!exists) {
+                            dataList.push({
+                                url: importItem.url,
+                                localVersion: importItem.localVersion || '',
+                                latestVersion: '',
+                                publishTime: '',
+                                status: '待检测',
+                                assets: []
+                            });
+                            addCount++;
+                        }
+                    });
+                    saveData();
+                    renderTable();
+                    alert(`导入完成，新增 ${addCount} 条项目`);
+                } catch (err) {
+                    alert('导入失败：文件格式错误');
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+            // 清空文件选择，避免重复选同一文件不触发事件
+            e.target.value = '';
+        }
+    </script>
+</body>
+</html>
