@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GitHub项目版本检测&下载工具</title>
+    <title>GitHub 版本检测&下载工具</title>
     <style>
         * {
             margin: 0;
@@ -39,14 +39,18 @@
             gap: 8px;
             justify-content: center;
         }
+        /* 初始隐藏添加区域 */
         .add-box {
-            display: flex;
+            display: none;
             gap: 8px;
             flex-wrap: wrap;
             margin-bottom: 15px;
             padding: 12px;
             background: #2d2d2d;
             border-radius: 6px;
+        }
+        .add-box.show {
+            display: flex;
         }
         .add-box input {
             flex: 1 1 180px;
@@ -71,10 +75,10 @@
             color: #fff;
             white-space: nowrap;
         }
-        .btn-add {
+        .btn-add-main {
             background: #2ea44f;
         }
-        .btn-add:hover {
+        .btn-add-main:hover {
             background: #2c974b;
         }
         .btn-check-all {
@@ -128,7 +132,6 @@
             text-decoration: underline;
             text-underline-offset: 2px;
         }
-        /* 项目名称：可点击复制样式 */
         .name-copy {
             cursor: pointer;
             color: #61dafb;
@@ -258,19 +261,21 @@
 </head>
 <body>
     <div class="container">
-        <h2>GitHub 项目版本检测&下载工具</h2>
+        <h2>GitHub 版本检测&下载工具</h2>
 
         <div class="operate-bar">
+            <button class="btn-add-main" onclick="toggleAddBox()">添加项目</button>
             <button class="btn-import" onclick="document.getElementById('importFile').click()">导入记录</button>
             <button class="btn-export" onclick="exportToTxt()">导出记录</button>
             <input type="file" id="importFile" accept=".txt,.json" onchange="importFromTxt(event)">
-            <button class="btn-check-all" onclick="checkAllVersion()">批量检测版本</button>
+            <button class="btn-check-all" onclick="checkAllVersion()">检测版本</button>
         </div>
 
-        <div class="add-box">
+        <!-- 默认隐藏的添加项目输入区域 -->
+        <div class="add-box" id="addBox">
             <input type="text" id="repoUrl" placeholder="请输入GitHub Releases链接">
-            <input type="text" id="localVersion" placeholder="本地当前版本（可为空）">
-            <button class="btn-add" onclick="addItem()">添加项目</button>
+            <input type="text" id="localVersion" placeholder="本地版本（可为空）">
+            <button class="btn-add-main" onclick="addItem()">确认添加</button>
         </div>
 
         <div class="table-wrap">
@@ -350,14 +355,19 @@
             return isoStr.split('T')[0];
         }
 
-        // 核心：点击项目名称复制对应链接
+        // 切换添加区域显示/隐藏
+        function toggleAddBox() {
+            const addBox = document.getElementById('addBox');
+            addBox.classList.toggle('show');
+        }
+
+        // 点击项目名称复制链接
         async function copyRepoUrl(index) {
             const url = dataList[index].url;
             try {
                 await navigator.clipboard.writeText(url);
                 alert('已复制链接：' + url);
             } catch (err) {
-                // 降级兼容
                 const textarea = document.createElement('textarea');
                 textarea.value = url;
                 document.body.appendChild(textarea);
@@ -394,6 +404,8 @@
             });
             saveData();
             renderTable();
+            // 添加完成后隐藏输入区并清空内容
+            document.getElementById('addBox').classList.remove('show');
             document.getElementById('repoUrl').value = '';
             document.getElementById('localVersion').value = '';
         }
@@ -587,15 +599,12 @@
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
-        // ========== 导出：标准 JSON 格式（双引号、浏览器原生支持） ==========
         function exportToTxt() {
             try {
-                // 仅保留核心字段导出
                 const exportData = dataList.map(item => ({
                     url: item.url,
                     localVersion: item.localVersion || ''
                 }));
-                // 标准格式化 JSON
                 const jsonStr = JSON.stringify(exportData, null, 2);
 
                 const blob = new Blob([jsonStr], { type: 'text/plain;charset=utf-8' });
@@ -613,7 +622,6 @@
             }
         }
 
-        // ========== 导入：标准 JSON 解析，稳定无报错 ==========
         function importFromTxt(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -621,7 +629,6 @@
             reader.onload = function(ev) {
                 try {
                     let text = ev.target.result.trim();
-                    // 直接原生解析标准 JSON
                     const importData = JSON.parse(text);
 
                     if (!Array.isArray(importData)) {
@@ -652,7 +659,6 @@
                 }
             };
             reader.readAsText(file, 'UTF-8');
-            // 清空文件选择，避免重复选同一文件不触发事件
             e.target.value = '';
         }
     </script>
