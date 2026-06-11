@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>记录-2.0.1</title>
+    <title>记录-4.0.1</title>
     <style>
         * {
             margin: 0;
@@ -74,17 +74,22 @@
             font-size: 14px;
             outline: none;
         }
-        textarea {
+        #content, #remark {
             min-height: 60px;
-            resize: vertical;
+            max-height: 200px;
+            resize: none;
+            overflow-y: auto;
         }
         .time-row {
             display: flex;
-            align-items: center;
             gap: 6px;
+            align-items: center;
         }
-        .time-input {
-            flex: 1;
+        .time-row input[type="date"] {
+            flex: 1.2;
+        }
+        .time-row input[type="text"] {
+            flex: 0.8;
         }
         .quick-btn {
             padding: 7px 6px;
@@ -93,15 +98,27 @@
             color: #fff;
             border: none;
             border-radius: 4px;
+            white-space: nowrap;
+        }
+        /* 按钮组布局 */
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
         }
         .btn {
-            width: 100%;
+            flex: 1;
             padding: 9px;
             border: none;
             border-radius: 6px;
             font-size: 14px;
-            background: #0066cc;
             color: #fff;
+        }
+        .save-btn {
+            background: #0066cc;
+        }
+        .form-reset-btn {
+            background: #555;
         }
         .query-btn {
             background: #28a745;
@@ -128,7 +145,7 @@
             padding: 4px 0;
             border-bottom: 1px dashed #222;
         }
-        .record-card .row:last-child {
+        .record-card .row:last-of-type {
             border-bottom: none;
         }
         .record-card .label {
@@ -139,25 +156,34 @@
         .record-card .val {
             color: #fff;
         }
-        .record-card textarea {
-            margin-top: 6px;
-            min-height: 40px;
-            font-size: 13px;
+        .text-clamp-2 {
+            cursor: pointer;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+        .btn-group {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
         }
         .del-btn {
+            flex: 1;
             background: #dc3545;
             color: #fff;
             border: none;
-            padding: 4px 8px;
+            padding: 6px;
             border-radius: 4px;
             font-size: 12px;
-            margin-left: 6px;
         }
-        .save-remark {
-            background: #0066cc;
+        .edit-btn {
+            flex: 1;
+            background: #ff9800;
             color: #fff;
             border: none;
-            padding: 4px 8px;
+            padding: 6px;
             border-radius: 4px;
             font-size: 12px;
         }
@@ -166,6 +192,82 @@
             padding: 30px 0;
             color: #666;
             font-size: 13px;
+        }
+        .modal-mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            padding: 15px;
+        }
+        .modal-box {
+            width: 100%;
+            max-width: 480px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-title {
+            font-size: 15px;
+            color: #fff;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .modal-content {
+            color: #e0e0e0;
+            line-height: 1.6;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 8px;
+            background: #1a1a1a;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+        .modal-close {
+            width: 100%;
+            padding: 8px;
+            background: #0066cc;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .modal-btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .modal-save {
+            flex: 1;
+            background: #28a745;
+            color: #fff;
+            border: none;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .modal-cancel {
+            flex: 1;
+            background: #555;
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .auto-textarea {
+            resize: none;
+            overflow-y: auto;
+            min-height: 50px;
         }
     </style>
 </head>
@@ -179,30 +281,28 @@
     <div class="page show" id="addPage">
         <div class="card">
             <div class="item">
-                <label>标题/名称</label>
-                <input type="text" id="device" required placeholder="请输入标题/名称">
-            </div>
-            <div class="item">
-                <label>日期</label>
-                <input type="date" id="repairDate" required>
-            </div>
-            <div class="item">
-                <label>开始时间（时:分）</label>
+                <label>开始时间</label>
                 <div class="time-row">
-                    <input class="time-input" type="text" id="start" placeholder="09:00" maxlength="5">
-                    <button class="quick-btn" onclick="setNow('start')">当前时间</button>
+                    <input type="date" id="startDate">
+                    <input type="text" id="startTime" placeholder="09:00" maxlength="5">
+                    <button class="quick-btn" onclick="setNowStart()">当前</button>
                 </div>
             </div>
             <div class="item">
-                <label>结束时间（时:分）</label>
+                <label>结束时间</label>
                 <div class="time-row">
-                    <input class="time-input" type="text" id="end" placeholder="10:00" maxlength="5">
-                    <button class="quick-btn" onclick="setNow('end')">当前时间</button>
+                    <input type="date" id="endDate">
+                    <input type="text" id="endTime" placeholder="10:00" maxlength="5">
+                    <button class="quick-btn" onclick="setNowEnd()">当前</button>
                 </div>
             </div>
             <div class="item">
                 <label>时长（分钟）</label>
                 <input type="text" id="minutes" readonly placeholder="自动计算">
+            </div>
+            <div class="item">
+                <label>标题</label>
+                <input type="text" id="device" required placeholder="请输入标题">
             </div>
             <div class="item">
                 <label>关键词(语)</label>
@@ -212,18 +312,26 @@
                 <label>详细内容</label>
                 <textarea id="content" required placeholder="请填写详细内容"></textarea>
             </div>
-            <button class="btn" onclick="saveRecord()">保存记录</button>
+            <div class="item">
+                <label>备注</label>
+                <textarea id="remark" placeholder="可填写备注信息"></textarea>
+            </div>
+            <!-- 保存 + 重置按钮同行布局 -->
+            <div class="btn-row">
+                <button class="btn save-btn" onclick="saveRecord()">保存记录</button>
+                <button class="btn form-reset-btn" onclick="resetAddForm()">重置</button>
+            </div>
         </div>
     </div>
     <!-- 查询页面 -->
     <div class="page" id="searchPage">
         <div class="card">
             <div class="item">
-                <label>日期</label>
+                <label>查询日期（匹配区间内记录）</label>
                 <input type="date" id="qDate">
             </div>
             <div class="item">
-                <label>标题/名称</label>
+                <label>标题</label>
                 <input type="text" id="qDevice" placeholder="输入名称精准/模糊查询">
             </div>
             <div class="item">
@@ -235,8 +343,44 @@
         </div>
         <div id="recordList"></div>
     </div>
+    <!-- 查看文本弹窗 -->
+    <div id="textModal" style="display: none;"></div>
+    <!-- 编辑记录弹窗 -->
+    <div id="editModal" style="display: none;"></div>
 <script>
 let records = JSON.parse(localStorage.getItem('repairRecords')) || [];
+let currentEditIndex = -1;
+
+// 文本域自适应
+const contentTextarea = document.getElementById('content');
+const remarkTextarea = document.getElementById('remark');
+
+contentTextarea.addEventListener('input', autoResize);
+contentTextarea.addEventListener('keydown', e => {
+    if(e.key === 'Enter') setTimeout(()=>autoResize.call(contentTextarea), 0);
+});
+remarkTextarea.addEventListener('input', autoResize);
+remarkTextarea.addEventListener('keydown', e => {
+    if(e.key === 'Enter') setTimeout(()=>autoResize.call(remarkTextarea), 0);
+});
+
+function autoResize() {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+}
+
+// HTML特殊字符转义
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// 页面切换
 function switchPage(type) {
     document.querySelectorAll('.page').forEach(el => el.classList.remove('show'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -244,83 +388,199 @@ function switchPage(type) {
     event.target.classList.add('active');
     if (type === 'search') queryData();
 }
+
 window.onload = function () {
     let today = new Date().toISOString().split('T')[0];
-    document.getElementById('repairDate').value = today;
-    document.getElementById('qDate').value = today;
-    document.getElementById('start').addEventListener('input', calcMinutes);
-    document.getElementById('end').addEventListener('input', calcMinutes);
+    document.getElementById('startDate').value = today;
+    document.getElementById('endDate').value = today;
+    document.getElementById('qDate').value = '';
+    const calcElems = [
+        document.getElementById('startDate'),
+        document.getElementById('startTime'),
+        document.getElementById('endDate'),
+        document.getElementById('endTime')
+    ];
+    calcElems.forEach(el => el.addEventListener('input', calcMinutes));
+    autoResize.call(contentTextarea);
+    autoResize.call(remarkTextarea);
 }
-function setNow(id) {
-    let d = new Date();
-    let h = String(d.getHours()).padStart(2, '0');
-    let m = String(d.getMinutes()).padStart(2, '0');
-    document.getElementById(id).value = h + ':' + m;
+
+// 新增表单重置：弹出确认，确认后恢复默认
+function resetAddForm() {
+    if (!confirm('表单重置为默认状态吗？已填写内容将清空！')) {
+        return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    // 恢复日期为当天，清空所有输入
+    document.getElementById('startDate').value = today;
+    document.getElementById('startTime').value = '';
+    document.getElementById('endDate').value = today;
+    document.getElementById('endTime').value = '';
+    document.getElementById('minutes').value = '';
+    document.getElementById('device').value = '';
+    document.getElementById('problem').value = '';
+    document.getElementById('content').value = '';
+    document.getElementById('remark').value = '';
+    // 重置文本域高度
+    autoResize.call(contentTextarea);
+    autoResize.call(remarkTextarea);
+}
+
+// 填充当前时间(开始)
+function setNowStart() {
+    let now = new Date();
+    let date = now.toISOString().split('T')[0];
+    let h = String(now.getHours()).padStart(2, '0');
+    let m = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('startDate').value = date;
+    document.getElementById('startTime').value = `${h}:${m}`;
     calcMinutes();
 }
-function toMin(str) {
-    if (!str || !str.includes(':')) return 0;
-    let [h, m] = str.split(':');
-    return parseInt(h || 0) * 60 + parseInt(m || 0);
+
+// 填充当前时间(结束)
+function setNowEnd() {
+    let now = new Date();
+    let date = now.toISOString().split('T')[0];
+    let h = String(now.getHours()).padStart(2, '0');
+    let m = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('endDate').value = date;
+    document.getElementById('endTime').value = `${h}:${m}`;
+    calcMinutes();
 }
+
+// 解析 日期+时分 → 时间戳
+function getTimeStamp(dateStr, timeStr) {
+    if(!dateStr || !timeStr || !timeStr.includes(':')) return 0;
+    let [h, m] = timeStr.split(':');
+    let date = new Date(`${dateStr} ${h}:${m}:00`);
+    return date.getTime();
+}
+
+// 新增页：计算时长 + 时间校验
 function calcMinutes() {
-    let s = toMin(document.getElementById('start').value);
-    let e = toMin(document.getElementById('end').value);
-    let diff = e - s;
-    document.getElementById('minutes').value = diff > 0 ? diff : '';
+    let sDate = document.getElementById('startDate').value;
+    let sTime = document.getElementById('startTime').value;
+    let eDate = document.getElementById('endDate').value;
+    let eTime = document.getElementById('endTime').value;
+    let startTs = getTimeStamp(sDate, sTime);
+    let endTs = getTimeStamp(eDate, eTime);
+    if (endTs < startTs) {
+        document.getElementById('minutes').value = '请检查开始/结束时间';
+        return;
+    }
+    let diffMs = endTs - startTs;
+    let diffMin = Math.round(diffMs / (1000 * 60));
+    document.getElementById('minutes').value = diffMin;
 }
+
+// 编辑弹窗：计算时长 + 时间校验
+function calcEditMinutes() {
+    let sDate = document.getElementById('ed_sd').value;
+    let sTime = document.getElementById('ed_st').value;
+    let eDate = document.getElementById('ed_ed').value;
+    let eTime = document.getElementById('ed_et').value;
+    let startTs = getTimeStamp(sDate, sTime);
+    let endTs = getTimeStamp(eDate, eTime);
+    if (endTs < startTs) {
+        document.getElementById('ed_min').value = '请检查开始/结束时间';
+        return;
+    }
+    let diffMs = endTs - startTs;
+    let diffMin = Math.round(diffMs / (1000 * 60));
+    document.getElementById('ed_min').value = diffMin;
+}
+
+// 时长格式化
+function formatDuration(totalMin) {
+    if (isNaN(totalMin) || totalMin === 0) return "0";
+    const MIN_PER_HOUR = 60;
+    const MIN_PER_DAY = 60 * 24;
+    const MIN_PER_MONTH = 60 * 24 * 30;
+    const MIN_PER_YEAR = 60 * 24 * 365;
+    let year = Math.floor(totalMin / MIN_PER_YEAR);
+    let remain = totalMin % MIN_PER_YEAR;
+    let month = Math.floor(remain / MIN_PER_MONTH);
+    remain = remain % MIN_PER_MONTH;
+    let day = Math.floor(remain / MIN_PER_DAY);
+    remain = remain % MIN_PER_DAY;
+    let hour = Math.floor(remain / MIN_PER_HOUR);
+    let minute = remain % MIN_PER_HOUR;
+    let arr = [];
+    if (year > 0) arr.push(`${year}年`);
+    if (month > 0) arr.push(`${month}月`);
+    if (day > 0) arr.push(`${day}日`);
+    if (hour > 0) arr.push(`${hour}小时`);
+    if (minute > 0) arr.push(`${minute}分钟`);
+    return arr.join(" ");
+}
+
+// 保存新记录
 function saveRecord() {
-    let device = document.getElementById('device').value.trim();
-    let date = document.getElementById('repairDate').value;
-    let start = document.getElementById('start').value.trim();
-    let end = document.getElementById('end').value.trim();
+    let sDate = document.getElementById('startDate').value;
+    let sTime = document.getElementById('startTime').value;
+    let eDate = document.getElementById('endDate').value;
+    let eTime = document.getElementById('endTime').value;
     let minutes = document.getElementById('minutes').value.trim();
+    let device = document.getElementById('device').value.trim();
     let problem = document.getElementById('problem').value.trim();
     let content = document.getElementById('content').value.trim();
-    if (!device || !date || !start || !end || !minutes || !problem || !content) {
+    let remark = document.getElementById('remark').value.trim();
+
+    if (!sDate || !sTime || !eDate || !eTime || minutes === '' || !device || !problem || !content) {
         alert('请填写完整信息');
+        return;
+    }
+    if (minutes === '请检查开始/结束时间') {
+        alert('开始时间不能晚于结束时间，请修正后再保存');
         return;
     }
     let obj = {
         id: Date.now(),
-        date: date,
-        device: device,
-        start: start,
-        end: end,
+        startDate: sDate,
+        startTime: sTime,
+        endDate: eDate,
+        endTime: eTime,
         minutes: minutes,
+        device: device,
         problem: problem,
         content: content,
-        remark: ''
+        remark: remark
     };
     records.unshift(obj);
     localStorage.setItem('repairRecords', JSON.stringify(records));
     alert('保存成功！');
-    document.getElementById('device').value = '';
-    document.getElementById('start').value = '';
-    document.getElementById('end').value = '';
+    document.getElementById('startTime').value = '';
+    document.getElementById('endTime').value = '';
     document.getElementById('minutes').value = '';
+    document.getElementById('device').value = '';
     document.getElementById('problem').value = '';
     document.getElementById('content').value = '';
+    document.getElementById('remark').value = '';
+    autoResize.call(contentTextarea);
+    autoResize.call(remarkTextarea);
 }
+
+// 查询筛选
 function queryData() {
     let selDate = document.getElementById('qDate').value;
     let devKey = document.getElementById('qDevice').value.trim();
     let probKey = document.getElementById('qProblem').value.trim();
     let result = records.filter(item => {
-        // 日期筛选：有选日期就匹配，为空不限制
         let dateOk = true;
-        if(selDate) dateOk = item.date === selDate;
-        // 标题/名称筛选：为空不限，包含关键词即匹配
-        let devOk = true;
-        if(devKey) devOk = item.device.includes(devKey);
-        // 关键词(语)筛选
-        let probOk = true;
-        if(probKey) probOk = item.problem.includes(probKey);
+        if (selDate) {
+            let s = new Date(item.startDate);
+            let e = new Date(item.endDate);
+            let q = new Date(selDate);
+            dateOk = (q >= s && q <= e);
+        }
+        let devOk = !devKey || item.device.includes(devKey);
+        let probOk = !probKey || item.problem.includes(probKey);
         return dateOk && devOk && probOk;
     });
     renderList(result);
 }
-// 渲染列表 修复时长undefined
+
+// 渲染记录列表
 function renderList(list) {
     let box = document.getElementById('recordList');
     box.innerHTML = '';
@@ -329,41 +589,179 @@ function renderList(list) {
         return;
     }
     list.forEach((item, idx) => {
+        let durText = formatDuration(Number(item.minutes || 0));
+        let previewContent = escapeHtml(item.content);
+        let previewRemark = escapeHtml(item.remark || '无');
         let html = `
         <div class="record-card">
-            <div class="row"><span class="label">日期：</span><span class="val">${item.date}</span></div>
-            <div class="row"><span class="label">标题/名称：</span><span class="val">${item.device}</span></div>
-            <div class="row"><span class="label">开始：</span><span class="val">${item.start}</span></div>
-            <div class="row"><span class="label">结束：</span><span class="val">${item.end}</span></div>
-            <div class="row"><span class="label">时长：</span><span class="val">${item.minutes || 0} 分钟</span></div>
-            <div class="row"><span class="label">关键词(语)：</span><span class="val">${item.problem}</span></div>
-            <div class="row"><span class="label">内容：</span><span class="val">${item.content}</span></div>
+            <div class="row"><span class="label">开始：</span><span class="val">${item.startDate} ${item.startTime}</span></div>
+            <div class="row"><span class="label">结束：</span><span class="val">${item.endDate} ${item.endTime}</span></div>
+            <div class="row"><span class="label">时长：</span><span class="val">${durText}</span></div>
+            <div class="row"><span class="label">标题：</span><span class="val">${item.device}</span></div>
+            <div class="row"><span class="label">关键词：</span><span class="val">${item.problem}</span></div>
+            <div class="row">
+                <span class="label">内容：</span>
+                <span class="val text-clamp-2" onclick="showTextModal(${idx}, 'content')">${previewContent}</span>
+            </div>
             <div class="row">
                 <span class="label">备注：</span>
-                <textarea id="rem_${idx}" placeholder="填写后续备注">${item.remark||''}</textarea>
-                <button class="save-remark" onclick="saveRem(${idx})">保存</button>
+                <span class="val text-clamp-2" onclick="showTextModal(${idx}, 'remark')">${previewRemark}</span>
+            </div>
+            <div class="btn-group">
                 <button class="del-btn" onclick="delItem(${idx})">删除记录</button>
+                <button class="edit-btn" onclick="openEditModal(${idx})">编辑</button>
             </div>
         </div>
         `;
         box.innerHTML += html;
     });
 }
-function saveRem(idx){
-    let txt = document.getElementById('rem_'+idx).value.trim();
-    records[idx].remark = txt;
-    localStorage.setItem('repairRecords',JSON.stringify(records));
-    alert('备注保存成功');
+
+// 查看内容/备注弹窗
+function showTextModal(idx, type) {
+    const item = records[idx];
+    let title = type === 'content' ? '完整详细内容' : '完整备注';
+    let rawText = type === 'content' ? item.content : (item.remark || '无');
+    const modal = document.getElementById('textModal');
+    modal.innerHTML = `
+        <div class="modal-mask" onclick="closeTextModal(event)">
+            <div class="modal-box" onclick="event.stopPropagation()">
+                <div class="modal-title">${title}</div>
+                <div class="modal-content" id="modalTextContent"></div>
+                <button class="modal-close" onclick="closeTextModal()">关闭</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('modalTextContent').textContent = rawText;
+    modal.style.display = 'block';
 }
-function delItem(idx){
-    if(!confirm('确定删除本条记录？'))return;
-    records.splice(idx,1);
-    localStorage.setItem('repairRecords',JSON.stringify(records));
+
+function closeTextModal(e) {
+    if(e && !e.target.classList.contains('modal-mask') && !e.target.classList.contains('modal-close')) return;
+    document.getElementById('textModal').style.display = 'none';
+}
+
+// 打开编辑弹窗
+function openEditModal(idx) {
+    currentEditIndex = idx;
+    const item = records[idx];
+    const modal = document.getElementById('editModal');
+    modal.innerHTML = `
+        <div class="modal-mask" onclick="closeEditModal(event)">
+            <div class="modal-box" onclick="event.stopPropagation()">
+                <div class="modal-title">编辑记录</div>
+                <div class="item">
+                    <label>开始时间</label>
+                    <div class="time-row">
+                        <input type="date" id="ed_sd" value="${item.startDate}">
+                        <input type="text" id="ed_st" value="${item.startTime}" maxlength="5">
+                    </div>
+                </div>
+                <div class="item">
+                    <label>结束时间</label>
+                    <div class="time-row">
+                        <input type="date" id="ed_ed" value="${item.endDate}">
+                        <input type="text" id="ed_et" value="${item.endTime}" maxlength="5">
+                    </div>
+                </div>
+                <div class="item">
+                    <label>时长(分钟)</label>
+                    <input type="text" id="ed_min" value="${item.minutes || 0}" readonly>
+                </div>
+                <div class="item">
+                    <label>标题</label>
+                    <input type="text" id="ed_device" value="${item.device}">
+                </div>
+                <div class="item">
+                    <label>关键词(语)</label>
+                    <input type="text" id="ed_prob" value="${item.problem}">
+                </div>
+                <div class="item">
+                    <label>详细内容</label>
+                    <textarea class="auto-textarea" id="ed_content">${item.content}</textarea>
+                </div>
+                <div class="item">
+                    <label>备注</label>
+                    <textarea class="auto-textarea" id="ed_remark">${item.remark || ''}</textarea>
+                </div>
+                <div class="modal-btn-row">
+                    <button class="modal-save" onclick="saveEdit()">保存修改</button>
+                    <button class="modal-cancel" onclick="closeEditModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'block';
+    const edCalc = [
+        document.getElementById('ed_sd'),
+        document.getElementById('ed_st'),
+        document.getElementById('ed_ed'),
+        document.getElementById('ed_et')
+    ];
+    edCalc.forEach(el => el.addEventListener('input', calcEditMinutes));
+    const edContent = document.getElementById('ed_content');
+    const edRemark = document.getElementById('ed_remark');
+    edContent.addEventListener('input', autoResize);
+    edRemark.addEventListener('input', autoResize);
+    edContent.addEventListener('keydown', e=>{if(e.key==='Enter')setTimeout(()=>autoResize.call(edContent),0)});
+    edRemark.addEventListener('keydown', e=>{if(e.key==='Enter')setTimeout(()=>autoResize.call(edRemark),0)});
+    autoResize.call(edContent);
+    autoResize.call(edRemark);
+}
+
+// 关闭编辑弹窗
+function closeEditModal(e) {
+    if(e && !e.target.classList.contains('modal-mask')) return;
+    document.getElementById('editModal').style.display = 'none';
+    currentEditIndex = -1;
+}
+
+// 保存编辑
+function saveEdit() {
+    let idx = currentEditIndex;
+    let sDate = document.getElementById('ed_sd').value;
+    let sTime = document.getElementById('ed_st').value.trim();
+    let eDate = document.getElementById('ed_ed').value;
+    let eTime = document.getElementById('ed_et').value.trim();
+    let minutes = document.getElementById('ed_min').value.trim();
+    let device = document.getElementById('ed_device').value.trim();
+    let problem = document.getElementById('ed_prob').value.trim();
+    let content = document.getElementById('ed_content').value.trim();
+    let remark = document.getElementById('ed_remark').value.trim();
+    if (!sDate || !sTime || !eDate || !eTime || minutes === '' || !device || !problem || !content) {
+        alert('请完善所有必填项！');
+        return;
+    }
+    if (minutes === '请检查开始/结束时间') {
+        alert('开始时间不能晚于结束时间，请修正后再保存');
+        return;
+    }
+    records[idx] = {
+        ...records[idx],
+        startDate: sDate,
+        startTime: sTime,
+        endDate: eDate,
+        endTime: eTime,
+        minutes: minutes,
+        device, problem, content, remark
+    };
+    localStorage.setItem('repairRecords', JSON.stringify(records));
+    closeEditModal();
+    alert('修改保存成功');
     queryData();
 }
-function resetQuery(){
-    let today = new Date().toISOString().split('T')[0];
-    document.getElementById('qDate').value = today;
+
+// 删除记录
+function delItem(idx) {
+    if (!confirm('确定删除本条记录？')) return;
+    records.splice(idx, 1);
+    localStorage.setItem('repairRecords', JSON.stringify(records));
+    queryData();
+}
+
+// 重置查询
+function resetQuery() {
+    document.getElementById('qDate').value = '';
     document.getElementById('qDevice').value = '';
     document.getElementById('qProblem').value = '';
     queryData();
