@@ -11,7 +11,7 @@
 - [GKD订阅文件工具](https://lhj1618github.github.io/html/GKD订阅文件工具.html) - 含创建和可视化编辑功能；支持手机端。需下载并导入本仓库文件(apps文件夹内文件。含sample.json5样本文件)，支持json5格式化，支持格式 md txt ts json json5 html 
 - [出勤和薪资计算](https://lhj1618github.github.io/html/出勤和薪资计算.html)
 - [GitHub项目版本检测&下载工具](https://lhj1618github.github.io/html/GitHub项目版本检测&下载工具.html)
-
+- [Car-车辆加油和消费记录](https://lhj1618github.github.io/html/Car-车辆加油和消费记录.html)
 
 ***
 
