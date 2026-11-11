@@ -10,81 +10,129 @@
         * { box-sizing: border-box; }
 
         :root {
-            --bg: #f3f4f6;
-            --text: #1f2937;
+            --bg: #f4f5f7;
+            --text: #1f2430;
+            --muted: #9aa2b1;
             --card-bg: #ffffff;
-            --border: #e5e7eb;
-            --divider: #eeeeee;
-            --hover: #2563eb;
+            --border: #e6e8ee;
+            --divider: #f0f1f5;
+            --accent: #2563eb;
+            --item-hover: #f3f7ff;
+            --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 10px 28px -12px rgba(16, 24, 40, .18);
             --btn-bg: #ffffff;
-            --btn-border: #d1d5db;
-            --btn-shadow: rgba(0, 0, 0, 0.08);
+            --btn-border: #e2e5eb;
+            --btn-shadow: rgba(16, 24, 40, .10);
         }
 
         [data-theme="dark"] {
-            --bg: #0f172a;
-            --text: #e5e7eb;
-            --card-bg: #1e293b;
-            --border: #334155;
-            --divider: #334155;
-            --hover: #60a5fa;
-            --btn-bg: #1e293b;
-            --btn-border: #475569;
-            --btn-shadow: rgba(0, 0, 0, 0.4);
+            --bg: #0b1220;
+            --text: #e6eaf2;
+            --muted: #6b7a91;
+            --card-bg: #131b29;
+            --border: #222d3f;
+            --divider: #1d2634;
+            --accent: #60a5fa;
+            --item-hover: #1a2436;
+            --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 28px -12px rgba(0, 0, 0, .6);
+            --btn-bg: #131b29;
+            --btn-border: #2a3648;
+            --btn-shadow: rgba(0, 0, 0, .5);
         }
 
         body {
-            font-family: 'Noto Sans SC', sans-serif;
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background-color: var(--bg);
             margin: 0;
-            padding: 40px 16px;
+            padding: 56px 16px 64px;
             color: var(--text);
-            transition: background-color 0.3s ease, color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color .3s ease, color .3s ease;
         }
 
         .wrap {
-            max-width: 720px;
+            max-width: 620px;
             margin: 0 auto;
         }
 
         h1 {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
-            margin: 0 0 20px;
+            letter-spacing: .02em;
             text-align: center;
+            margin: 0 0 22px;
         }
 
+        /* ===== 工具列表 ===== */
         ol.tool-list {
-            list-style: decimal;
-            padding-left: 1.6em;
+            list-style: none;
+            counter-reset: tool;
             margin: 0;
+            padding: 6px;
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            padding-right: 1.6em;
-            transition: background-color 0.3s ease, border-color 0.3s ease;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            transition: background-color .3s ease, border-color .3s ease, box-shadow .3s ease;
         }
 
         ol.tool-list li {
-            padding: 12px 4px;
-            border-bottom: 1px solid var(--divider);
+            counter-increment: tool;
         }
 
-        ol.tool-list li:last-child {
-            border-bottom: none;
+        ol.tool-list li + li {
+            border-top: 1px solid var(--divider);
         }
 
         ol.tool-list li a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 10px;
             color: var(--text);
+            font-size: 14.5px;
+            line-height: 1.45;
             text-decoration: none;
-            font-size: 15px;
+            transition: background-color .18s ease, color .18s ease;
+        }
+
+        /* 序号 */
+        ol.tool-list li a::before {
+            content: counter(tool);
+            flex: 0 0 20px;
+            text-align: right;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+            transition: color .18s ease;
+        }
+
+        /* 右侧箭头 */
+        ol.tool-list li a::after {
+            content: "";
+            flex: 0 0 auto;
+            width: 6px;
+            height: 6px;
+            margin-left: 4px;
+            border-top: 1.5px solid currentColor;
+            border-right: 1.5px solid currentColor;
+            transform: rotate(45deg);
+            color: var(--muted);
+            opacity: .5;
+            transition: opacity .18s ease, color .18s ease;
         }
 
         ol.tool-list li a:hover {
-            color: var(--hover);
-            text-decoration: underline;
+            background: var(--item-hover);
+            color: var(--accent);
+        }
+
+        ol.tool-list li a:hover::before,
+        ol.tool-list li a:hover::after {
+            color: var(--accent);
+            opacity: 1;
         }
 
         /* ===== 日/夜主题切换按钮 ===== */
@@ -93,8 +141,8 @@
             top: 16px;
             right: 16px;
             z-index: 9999;
-            width: 44px;
-            height: 44px;
+            width: 40px;
+            height: 40px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -102,23 +150,27 @@
             border-radius: 999px;
             background: var(--btn-bg);
             color: var(--text);
-            font-size: 20px;
-            line-height: 1;
             cursor: pointer;
             box-shadow: 0 2px 8px var(--btn-shadow);
-            transition: background-color 0.3s ease, color 0.3s ease,
-                        border-color 0.3s ease, transform 0.15s ease;
+            transition: background-color .3s ease, color .3s ease,
+                        border-color .3s ease, transform .15s ease;
         }
 
         .theme-toggle:hover { transform: translateY(-1px); }
         .theme-toggle:active { transform: translateY(0); }
-        .theme-toggle svg { width: 22px; height: 22px; display: block; }
+        .theme-toggle svg { width: 19px; height: 19px; display: block; }
 
         /* 浅色下显示月亮（点击切到夜间），深色下显示太阳（点击切到日间） */
         .theme-toggle .icon-sun { display: none; }
         .theme-toggle .icon-moon { display: block; }
         [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
         [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+        @media (max-width: 480px) {
+            body { padding: 44px 12px 48px; }
+            h1 { font-size: 18px; margin-bottom: 18px; }
+            ol.tool-list li a { font-size: 14px; padding: 11px 10px; gap: 10px; }
+        }
     </style>
 </head>
 <body>
@@ -138,16 +190,16 @@
     <div class="wrap">
         <h1>个人实用工具集</h1>
         <ol class="tool-list">
-            <li><a href="https://lhj1618github.github.io/html/LiTT.html" target="_blank">李跳跳自定义规则工具</a></li>
-            <li><a href="https://lhj1618github.github.io/html/李跳跳进阶指南.html" target="_blank">李跳跳进阶指南</a></li>
-            <li><a href="https://lhj1618github.github.io/html/json5.html" target="_blank">JSON5 格式化查错</a></li>
-            <li><a href="https://lhj1618github.github.io/html/文本编辑器.html" target="_blank">本地文本编辑器</a></li>
-            <li><a href="https://lhj1618github.github.io/html/memo-记录.html" target="_blank">本地记录存档系统</a></li>
-            <li><a href="https://lhj1618github.github.io/html/追剧进度管理器.html" target="_blank">追剧进度管理器</a></li>
-            <li><a href="https://lhj1618github.github.io/html/GKD订阅文件工具.html" target="_blank">GKD订阅文件工具</a></li>
-            <li><a href="https://lhj1618github.github.io/html/出勤和薪资计算.html" target="_blank">出勤和薪资计算</a></li>
-            <li><a href="https://lhj1618github.github.io/html/GitHub项目版本检测&下载工具.html" target="_blank">GitHub项目版本检测&下载工具</a></li>
-            <li><a href="https://lhj1618github.github.io/html/Car-车辆加油和消费记录.html" target="_blank">Car-车辆加油和消费记录</a></li>
+            <li><a href="https://lhj1618github.github.io/html/LiTT.html" target="_blank" rel="noopener">李跳跳自定义规则工具</a></li>
+            <li><a href="https://lhj1618github.github.io/html/李跳跳进阶指南.html" target="_blank" rel="noopener">李跳跳进阶指南</a></li>
+            <li><a href="https://lhj1618github.github.io/html/json5.html" target="_blank" rel="noopener">JSON5 格式化查错</a></li>
+            <li><a href="https://lhj1618github.github.io/html/文本编辑器.html" target="_blank" rel="noopener">本地文本编辑器</a></li>
+            <li><a href="https://lhj1618github.github.io/html/memo-记录.html" target="_blank" rel="noopener">本地记录存档系统</a></li>
+            <li><a href="https://lhj1618github.github.io/html/追剧进度管理器.html" target="_blank" rel="noopener">追剧进度管理器</a></li>
+            <li><a href="https://lhj1618github.github.io/html/GKD订阅文件工具.html" target="_blank" rel="noopener">GKD订阅文件工具</a></li>
+            <li><a href="https://lhj1618github.github.io/html/出勤和薪资计算.html" target="_blank" rel="noopener">出勤和薪资计算</a></li>
+            <li><a href="https://lhj1618github.github.io/html/GitHub项目版本检测&下载工具.html" target="_blank" rel="noopener">GitHub项目版本检测&下载工具</a></li>
+            <li><a href="https://lhj1618github.github.io/html/Car-车辆加油和消费记录.html" target="_blank" rel="noopener">Car-车辆加油和消费记录</a></li>
         </ol>
     </div>
 
