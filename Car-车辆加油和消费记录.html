@@ -104,10 +104,11 @@ tailwind.config={theme:{extend:{colors:{primary:'#165DFF',fuel:'#FF7D00',cost:'#
     <div class="bg-darkCard rounded-lg p-5 card-shadow mb-6">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
         <h3 class="font-medium">周期数据统计查询</h3>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-2">
           <button onclick="calcTotal('all')" class="px-3 py-1 border border-gray-600 rounded hover:bg-gray-800">全部时间</button>
           <button onclick="calcTotal('3month')" class="px-3 py-1 border border-gray-600 rounded hover:bg-gray-800">近3个月</button>
           <button onclick="calcTotal('1year')" class="px-3 py-1 border border-gray-600 rounded hover:bg-gray-800">近1年</button>
+          <button onclick="openSettings()" title="数据备份与恢复" class="w-9 h-9 flex items-center justify-center border border-gray-600 rounded text-gray-400 hover:text-primary hover:bg-gray-800 transition"><i class="fa fa-cog"></i></button>
         </div>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
@@ -156,10 +157,31 @@ tailwind.config={theme:{extend:{colors:{primary:'#165DFF',fuel:'#FF7D00',cost:'#
   </div>
 </div>
 
+<!-- 设置面板：数据备份与恢复 -->
+<div id="settingsModal" class="base-modal">
+  <div class="modal-inner">
+    <div class="mb-6"><button onclick="closeSettings()" class="flex items-center text-gray-300 hover:text-white gap-1"><i class="fa fa-arrow-left"></i>返回主界面</button></div>
+    <div class="bg-darkCard rounded-lg p-5 card-shadow">
+      <h2 class="text-lg font-semibold mb-4 flex items-center gap-2"><i class="fa fa-cog text-primary"></i>数据备份与恢复</h2>
+      <p class="text-sm text-gray-400 mb-4 leading-relaxed">
+        导出会把当前全部加油记录、消费记录以及保险保养到期设置保存为一个 JSON 备份文件；
+        导入会用备份文件覆盖当前全部数据，请谨慎操作。
+      </p>
+      <div class="space-y-3">
+        <button onclick="exportAllData()" class="bg-primary text-white px-5 py-2 rounded hover:opacity-90 w-full flex items-center justify-center gap-1"><i class="fa fa-download"></i>导出全部数据</button>
+        <button onclick="document.getElementById('importFile').click()" class="bg-cost text-white px-5 py-2 rounded hover:opacity-90 w-full flex items-center justify-center gap-1"><i class="fa fa-upload"></i>导入全部数据</button>
+        <input type="file" id="importFile" accept=".json,application/json" class="hidden" onchange="importAllData(event)">
+      </div>
+      <p id="settingsTip" class="text-xs text-gray-500 mt-4">导出文件名形如：车辆油耗消费备份_2025-01-01.json</p>
+    </div>
+  </div>
+</div>
+
 <script>
 const KEY_FUEL = "car_fuel_list", KEY_COST = "car_cost_list", KEY_INSURE = "car_insure_data";
 let currentFilter = "all";
 const modal = document.getElementById("insureModal");
+const settingsModal = document.getElementById("settingsModal");
 // 工具函数
 const $ = id => document.getElementById(id);
 const lsGet = k => JSON.parse(localStorage.getItem(k) || "[]");
@@ -174,6 +196,8 @@ window.onload = () => {
 // 弹窗
 const openModal = () => modal.classList.add("show");
 const closeModal = () => { modal.classList.remove("show"); renderRemind(); };
+const openSettings = () => settingsModal.classList.add("show");
+const closeSettings = () => settingsModal.classList.remove("show");
 // 标签切换
 function initTab() {
   document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -290,6 +314,72 @@ const delCost = id => {
   saveCost(getCost().filter(i=>i.id!==id));
   calcTotal(currentFilter); renderAllRecords();
 };
+// ===== 数据备份 / 恢复 =====
+function exportAllData() {
+  const payload = {
+    app: "car-fuel-cost",
+    version: 1,
+    exportAt: new Date().toISOString(),
+    fuel: getFuel(),
+    cost: getCost(),
+    insure: lsGet(KEY_INSURE)
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: "application/json;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `车辆油耗消费备份_${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  $("settingsTip").innerText = `已导出：加油 ${payload.fuel.length} 条，消费 ${payload.cost.length} 条`;
+}
+
+function importAllData(ev) {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const fuel = Array.isArray(data.fuel) ? data.fuel : (Array.isArray(data.fuelList) ? data.fuelList : []);
+      const cost = Array.isArray(data.cost) ? data.cost : (Array.isArray(data.costList) ? data.costList : []);
+      let insure = data.insure;
+      if (insure && !Array.isArray(insure)) insure = [insure];
+      if (!Array.isArray(insure)) insure = [];
+
+      if (!fuel.length && !cost.length && !insure.length) {
+        alert("文件中没有可导入的数据，请选择本系统导出的备份文件");
+        return;
+      }
+      const ok = confirm(
+        `即将导入：加油 ${fuel.length} 条、消费 ${cost.length} 条、保险保养设置 ${insure.length ? "有" : "无"}。\n` +
+        `导入将覆盖当前全部数据，是否继续？`
+      );
+      if (!ok) return;
+
+      saveFuel(fuel);
+      saveCost(cost);
+      lsSet(KEY_INSURE, insure);
+
+      // 刷新全部界面
+      loadInsureData();
+      calcFuelAvg();
+      calcTotal("all");
+      renderAllRecords();
+      renderRemind();
+      $("settingsTip").innerText = `导入成功：加油 ${fuel.length} 条，消费 ${cost.length} 条`;
+      alert("导入成功，数据已恢复");
+    } catch (err) {
+      alert("导入失败：文件不是有效的 JSON 备份");
+    } finally {
+      ev.target.value = "";
+    }
+  };
+  reader.readAsText(file, "utf-8");
+}
 // 周期统计
 function getStartDate(type) {
   const now = new Date();
