@@ -61,17 +61,17 @@
 
     .app-header p{color:var(--text-dim);font-size:.8em;}
 
-    /* ---------- 工具栏 ---------- */
+    /* ---------- 工具栏：单行、不换行 ---------- */
     .toolbar{
         display:flex;
-        flex-wrap:wrap;
+        flex-wrap:nowrap;
         gap:8px;
         align-items:center;
-        justify-content:space-between;
+        justify-content:center;
         margin-bottom:12px;
     }
 
-    .toolbar-group{display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
+    .toolbar-group{display:flex;flex-wrap:nowrap;gap:8px;align-items:center;}
 
     /* ---------- 按钮 ---------- */
     .btn{
@@ -117,7 +117,7 @@
 
     .file-label{cursor:pointer;}
 
-    /* ---------- 紧凑图标按钮（工具栏） ---------- */
+    /* ---------- 紧凑图标按钮（添加、设置） ---------- */
     .btn-icon{
         position:relative;
         padding:7px 11px;
@@ -489,6 +489,11 @@
         font-size:.95em;
     }
 
+    /* ---------- 数据管理（设置面板内） ---------- */
+    .data-actions{display:flex;gap:8px;margin-top:2px;}
+
+    .data-actions .btn{flex:1;padding:9px 10px;font-size:.85em;}
+
     /* ---------- 文件列表 ---------- */
     .select-all{
         display:flex;
@@ -697,11 +702,11 @@
         .app-header h1{font-size:1.3em;}
         .app-header p{font-size:.76em;}
 
-        .toolbar{flex-direction:column;align-items:stretch;gap:8px;}
-        .toolbar-group{width:100%;justify-content:center;gap:8px;}
-        .toolbar-group .btn{flex:0 0 auto;}
+        /* 工具栏保持单行并居中 */
+        .toolbar{justify-content:center;gap:8px;}
+        .toolbar-group{width:auto;justify-content:center;gap:8px;}
 
-        /* 手机上按钮纯图标化，最紧凑 */
+        /* 添加、设置保持图标按钮，44×40 */
         .btn-icon{
             width:44px;
             height:40px;
@@ -712,6 +717,14 @@
         .btn-icon .ico{width:17px;height:17px;}
         .btn-icon .txt{display:none;}
         .btn-icon .dot{top:6px;right:6px;}
+
+        /* 检测文字按钮，高度与图标按钮对齐 */
+        #check-all{
+            padding:9px 14px;
+            font-size:.84em;
+            min-height:40px;
+            border-radius:11px;
+        }
 
         .add-panel{padding:13px;}
         .add-panel input{flex-basis:100%;}
@@ -752,6 +765,10 @@
         .cell-actions .btn{font-size:.76em;}
 
         .btn-icon{width:40px;height:38px;}
+
+        #check-all{padding:8px 12px;font-size:.8em;min-height:38px;}
+
+        .data-actions{flex-direction:column;}
     }
 
     @media (prefers-reduced-motion:reduce){
@@ -771,32 +788,20 @@
     <p>追踪仓库 Release 版本 · 一键对比与下载</p>
 </header>
 
+<!-- 工具栏：仅保留 添加 / 检测 / 设置，单行 -->
 <div class="toolbar">
     <div class="toolbar-group">
         <button type="button" class="btn btn-primary btn-icon" id="toggle-add" title="添加项目" aria-label="添加项目">
             <span class="ico"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
             <span class="txt">添加</span>
         </button>
-        <button type="button" class="btn btn-icon" id="check-all" title="检测版本" aria-label="检测版本">
-            <span class="ico"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg></span>
-            <span class="txt">检测</span>
-        </button>
-        <button type="button" class="btn btn-icon" id="open-settings" title="设置（GitHub Token）" aria-label="设置">
+
+        <button type="button" class="btn" id="check-all">检测版本</button>
+
+        <button type="button" class="btn btn-icon" id="open-settings" title="设置与数据管理" aria-label="设置">
             <span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
             <span class="txt">设置</span>
             <span class="dot" id="token-dot" hidden></span>
-        </button>
-    </div>
-
-    <div class="toolbar-group">
-        <label class="btn btn-icon file-label" for="import-file" title="导入记录" aria-label="导入记录">
-            <span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
-            <span class="txt">导入</span>
-        </label>
-        <input type="file" id="import-file" accept=".json,.txt,application/json,text/plain" hidden>
-        <button type="button" class="btn btn-icon" id="export-btn" title="导出记录" aria-label="导出记录">
-            <span class="ico"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
-            <span class="txt">导出</span>
         </button>
     </div>
 </div>
@@ -828,7 +833,7 @@
     <div id="repo-list"></div>
 </section>
 
-<!-- 设置模态框 -->
+<!-- 设置模态框：Token + 数据管理（导入 / 导出） -->
 <div class="modal" id="settings-modal">
     <div class="modal-content">
         <div class="modal-head">
@@ -846,6 +851,15 @@
                 未配置时 GitHub API 每小时仅 <b>60</b> 次请求；配置 Token 后提升至 <b>5000</b> 次。
                 <br>Token 仅保存在当前浏览器本地（localStorage），<b>不会上传到任何服务器</b>。
                 <br>仅需勾选 <b>public_repo</b>（或完全不勾选，读取公开仓库即可），建议设置较短的有效期。
+            </div>
+        </div>
+
+        <div class="field">
+            <label>数据管理</label>
+            <div class="data-actions">
+                <label class="btn file-label" for="import-file">导入记录</label>
+                <input type="file" id="import-file" accept=".json,.txt,application/json,text/plain" hidden>
+                <button type="button" class="btn" id="export-btn">导出记录</button>
             </div>
         </div>
 
