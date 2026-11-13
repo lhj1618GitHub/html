@@ -58,7 +58,6 @@
     gap: 10px 16px; margin-bottom: 10px;
   }
   .grid2 label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; }
-  .grid2 .field-hint { font-size: 11.5px; color: var(--faint); margin-top: -2px; }
 
   .row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
   .row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #374151; }
@@ -106,7 +105,7 @@
   .list-toolbar .toolbar-hint { font-size: 11.5px; color: var(--faint); }
 
   .list-box {
-    max-height: 400px; overflow: auto; border: 1px solid #eef2f7; border-radius: 8px;
+    max-height: 420px; overflow: auto; border: 1px solid #eef2f7; border-radius: 8px;
     -webkit-overflow-scrolling: touch;
   }
   .list-item {
@@ -147,35 +146,6 @@
   .small-btn.danger { background: #fee2e2; color: #b91c1c; }
   .small-btn.danger:hover:not(:disabled) { background: #fecaca; }
 
-  details.card summary {
-    cursor: pointer; font-weight: 600; font-size: 13.5px;
-    list-style: none; user-select: none;
-  }
-  details.card summary::-webkit-details-marker { display: none; }
-  details.card summary::before {
-    content: "▸"; display: inline-block; margin-right: 6px; transition: transform .15s;
-  }
-  details.card[open] summary::before { transform: rotate(90deg); }
-  #log { max-height: 360px; overflow: auto; margin-top: 9px; border-top: 1px solid #f1f5f9; }
-  #log:empty { display: none; }
-  .log-item {
-    display: flex; flex-wrap: wrap; gap: 2px 9px; align-items: baseline;
-    padding: 6px 11px; border-bottom: 1px solid #f1f5f9; font-size: 13px;
-  }
-  .log-item:last-child { border-bottom: none; }
-  .log-item.dead { background: #fef2f2; }
-  .log-item.skip { background: #fffbeb; }
-  .log-title {
-    flex: 1 1 110px; min-width: 0; font-weight: 500;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .log-url {
-    flex: 1 1 170px; min-width: 0; color: var(--muted); font-size: 12px;
-    font-family: ui-monospace, Consolas, monospace;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .log-note { flex: none; color: var(--faint); font-size: 12px; white-space: nowrap; }
-
   @media (max-width: 640px) {
     body { padding: 13px 10px 36px; }
     h1 { font-size: 17px; }
@@ -183,8 +153,6 @@
     .actions button { flex: 1 1 100%; }
     .li-title { flex-basis: 100%; white-space: normal; }
     .li-url { flex-basis: 100%; }
-    .log-title { flex-basis: 100%; white-space: normal; }
-    .log-url { flex-basis: 100%; }
     .stats { gap: 12px; }
   }
 </style>
@@ -207,7 +175,7 @@
       <label>超时(ms) <input type="number" id="timeout" value="12000" min="1000" step="1000"></label>
       <label>追加检测并发 <input type="number" id="recheckConcurrency" value="4" min="1" max="16"></label>
     </div>
-    <div class="field-hint" style="font-size:11.5px;color:#9ca3af;margin:-4px 0 10px">
+    <div style="font-size:11.5px;color:#9ca3af;margin:-4px 0 10px">
       追加检测默认使用较保守的并发（4），避免对目标站点造成限流。
     </div>
     <label class="title" style="margin-top:2px">跳过关键词（逗号分隔，链接包含即跳过）</label>
@@ -258,11 +226,6 @@
     <div class="list-box" id="listBox"><div class="empty">暂无内容</div></div>
   </div>
 
-  <details class="card" id="logCard">
-    <summary>检测日志</summary>
-    <div id="log"></div>
-  </details>
-
   <div class="hint" style="max-width:1000px; margin-top:4px">
     跨域链接无法读取 HTTP 状态码：先尝试 CORS 获取真实状态，被拦截则降级为 no-cors 探测（能连通即视为有效）。
     「返回 404 但无 CORS 头」的链接可能被误判为有效，建议抽样复核。若请求被全部拦截，请将页面放到本地 HTTP 服务下打开。
@@ -286,8 +249,7 @@
     exportBtn: $('exportBtn'),
     listBox: $('listBox'), listCount: $('listCount'),
     skipToolbar: $('skipToolbar'), skipSelectAll: $('skipSelectAll'),
-    recheckBtn: $('recheckBtn'), selectedCount: $('selectedCount'), recheckHint: $('recheckHint'),
-    logCard: $('logCard'), log: $('log')
+    recheckBtn: $('recheckBtn'), selectedCount: $('selectedCount'), recheckHint: $('recheckHint')
   };
 
   var state = {
@@ -489,76 +451,6 @@
     });
   }
 
-  /* ================= 日志 ================= */
-  var LOG_LIMIT = 3000;
-  var logCount = 0;
-  var logQueue = [];
-  var logScheduled = false;
-
-  function statusText(s) {
-    return s === 'ok' ? '有效' : s === 'dead' ? '失效' : s === 'skip' ? '跳过' : '未检测';
-  }
-
-  function pushLog(link) {
-    if (logCount >= LOG_LIMIT) return;
-    logCount++;
-    logQueue.push(link);
-    if (!logScheduled) {
-      logScheduled = true;
-      requestAnimationFrame(flushLog);
-    }
-  }
-
-  function flushLog() {
-    logScheduled = false;
-    if (!logQueue.length) return;
-    var frag = document.createDocumentFragment();
-    while (logQueue.length) {
-      var link = logQueue.shift();
-      var row = document.createElement('div');
-      row.className = 'log-item ' + link.status;
-      row.dataset.href = link.href;
-
-      var badge = document.createElement('span');
-      badge.className = 'badge ' + (link.status === 'ok' ? 'ok' : link.status === 'dead' ? 'dead' : 'keyword');
-      badge.textContent = statusText(link.status);
-
-      var title = document.createElement('span');
-      title.className = 'log-title';
-      title.textContent = link.title || '(无标题)';
-      title.title = link.title || '';
-
-      var url = document.createElement('span');
-      url.className = 'log-url';
-      url.textContent = link.href;
-      url.title = link.href;
-
-      var note = document.createElement('span');
-      note.className = 'log-note';
-      note.textContent = link.note || '';
-
-      row.append(badge, title, url, note);
-      frag.appendChild(row);
-    }
-    els.log.appendChild(frag);
-  }
-
-  function updateLogRow(href, status, note) {
-    var rows = els.log.querySelectorAll('.log-item');
-    for (var i = 0; i < rows.length; i++) {
-      var row = rows[i];
-      if (row.dataset.href !== href) continue;
-      row.className = 'log-item ' + status;
-      var badge = row.querySelector('.badge');
-      if (badge) {
-        badge.className = 'badge ' + (status === 'ok' ? 'ok' : status === 'dead' ? 'dead' : 'keyword');
-        badge.textContent = statusText(status);
-      }
-      var noteEl = row.querySelector('.log-note');
-      if (noteEl) noteEl.textContent = note || '';
-    }
-  }
-
   /* ================= 进度 / 统计 ================= */
   function setProgress(done, total, prefix) {
     var pct = total ? Math.round(done / total * 100) : 0;
@@ -723,7 +615,6 @@
         if (!x._prevStatus) { x._prevStatus = 'dead'; x._deadNote = x.note; }
         x.status = 'skip';
         x.note = '手动跳过';
-        updateLogRow(x.href, 'skip', '手动跳过');
       }
     });
     recomputeStats();
@@ -738,7 +629,6 @@
       if (x.href === l.href && x.status === 'skip' && x.note === '手动跳过') {
         x.status = x._prevStatus || 'dead';
         x.note = x.status === 'dead' ? (x._deadNote || '之前检测为失效') : '';
-        updateLogRow(x.href, x.status, x.note);
       }
     });
     recomputeStats();
@@ -795,7 +685,6 @@
         }
         state.manualSkip.delete(link.href);
         selectedSkip.delete(link.href);
-        updateLogRow(link.href, link.status, link.note);
         done++;
         setProgress(done, total, '追加检测');
         return worker();
@@ -849,9 +738,6 @@
         ' 条，文件夹 ' + folders + ' 个。';
       els.startBtn.disabled = links.length === 0;
       els.exportBtn.disabled = true;
-      els.log.innerHTML = '';
-      logCount = 0;
-      logQueue = [];
       els.progressBar.style.width = '0%';
       els.progressTxt.textContent = '等待开始…';
       refreshStats({ ok: 0, dead: 0, skip: 0 });
@@ -872,10 +758,6 @@
     state.running = true;
     els.startBtn.disabled = true;
     els.exportBtn.disabled = true;
-    els.log.innerHTML = '';
-    els.logCard.open = true;
-    logCount = 0;
-    logQueue = [];
 
     els.listBox.innerHTML = '<div class="empty">检测进行中…</div>';
     els.listCount.textContent = '—';
@@ -895,7 +777,6 @@
         link.status = 'skip';
         link.note = '非 HTTP(S) 链接';
         counters.skip++;
-        pushLog(link);
         return;
       }
 
@@ -903,7 +784,6 @@
         link.status = 'skip';
         link.note = '手动跳过';
         counters.skip++;
-        pushLog(link);
         return;
       }
 
@@ -916,7 +796,6 @@
         link.status = 'skip';
         link.note = '命中关键词「' + hit + '」';
         counters.skip++;
-        pushLog(link);
         return;
       }
 
@@ -955,7 +834,6 @@
           counters.dead++;
         }
         done++;
-        pushLog(link);
         refreshStats(counters);
         setProgress(done, total);
         return worker();
