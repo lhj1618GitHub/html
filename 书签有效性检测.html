@@ -1,1 +1,1009 @@
-q
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>书签链接有效性检测工具</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 60px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f4f6f9; color: #1f2937; font-size: 14px;
+  }
+  .wrap { max-width: 1020px; margin: 0 auto; }
+  h1 { font-size: 21px; margin: 0 0 6px; }
+  .sub { color: #6b7280; font-size: 13px; margin-bottom: 18px; }
+  .card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 16px 18px; margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(16,24,40,.04);
+  }
+  .card .title { display: block; font-weight: 600; margin-bottom: 10px; font-size: 14px; }
+  input[type=file] { font-size: 13px; }
+  input[type=number] { width: 88px; padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+  textarea {
+    width: 100%; padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-family: ui-monospace, Consolas, monospace; font-size: 13px; resize: vertical;
+    line-height: 1.5;
+  }
+  textarea:focus, input:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
+  .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+  .row label { display: flex; align-items: center; gap: 6px; color: #374151; }
+  .hint { color: #6b7280; font-size: 12.5px; margin-top: 8px; line-height: 1.6; }
+  button {
+    border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: .15s;
+  }
+  #startBtn { background: #2563eb; color: #fff; }
+  #startBtn:hover:not(:disabled) { background: #1d4ed8; }
+  #exportBtn { background: #059669; color: #fff; }
+  #exportBtn:hover:not(:disabled) { background: #047857; }
+  #exportEachBtn { background: #fff; color: #2563eb; border: 1px solid #bfdbfe; }
+  #exportEachBtn:hover:not(:disabled) { background: #eff6ff; }
+  button:disabled { background: #cbd5e1 !important; color: #fff !important; border-color: #cbd5e1 !important; cursor: not-allowed; }
+  .actions { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+
+  .progress-outer { height: 10px; background: #e5e7eb; border-radius: 99px; overflow: hidden; margin: 6px 0 8px; }
+  .progress-inner { height: 100%; width: 0; background: linear-gradient(90deg,#3b82f6,#22c55e); transition: width .2s; }
+  .progress-text { font-size: 12.5px; color: #6b7280; }
+  .stats { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 4px; }
+  .stat { font-size: 13px; color: #4b5563; }
+  .stat b { font-size: 16px; margin-left: 4px; }
+  .stat.ok b { color: #059669; }
+  .stat.dead b { color: #dc2626; }
+  .stat.skip b { color: #d97706; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+  .tabs button {
+    background: #eef2f7; color: #374151; padding: 6px 14px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+  }
+  .tabs button.active { background: #2563eb; color: #fff; }
+  .panel-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .panel-toolbar label { display: flex; align-items: center; gap: 6px; color: #374151; font-size: 13px; }
+  .list-box { max-height: 320px; overflow: auto; border: 1px solid #eef2f7; border-radius: 8px; }
+  .list-item {
+    display: flex; gap: 10px; align-items: center;
+    padding: 7px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px;
+  }
+  .list-item:last-child { border-bottom: none; }
+  .list-item:hover { background: #f8fafc; }
+  .list-item input[type=checkbox] { flex: none; }
+  .li-title { flex: none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .li-url {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: #6b7280; font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+  }
+  .li-note { flex: none; color: #9ca3af; font-size: 12px; white-space: nowrap; }
+  .empty { padding: 16px; text-align: center; color: #9ca3af; font-size: 13px; }
+  .small-btn { padding: 6px 12px; font-size: 12.5px; border-radius: 7px; background: #eef2f7; color: #374151; font-weight: 600; }
+  .small-btn:hover:not(:disabled) { background: #e2e8f0; }
+  .small-btn.danger { background: #fee2e2; color: #b91c1c; }
+  .small-btn.danger:hover:not(:disabled) { background: #fecaca; }
+
+  #log { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; max-height: 460px; overflow: auto; margin-bottom: 14px; }
+  #log:empty { display: none; }
+  .log-item { display: flex; gap: 10px; align-items: baseline; padding: 7px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+  .log-item:last-child { border-bottom: none; }
+  .log-item.dead { background: #fef2f2; }
+  .log-item.skip { background: #fffbeb; }
+  .badge { flex: none; font-size: 11px; padding: 2px 8px; border-radius: 99px; color: #fff; font-weight: 600; }
+  .badge.ok { background: #10b981; }
+  .badge.dead { background: #ef4444; }
+  .badge.skip { background: #f59e0b; }
+  .log-title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; flex: none; }
+  .log-url { color: #6b7280; font-family: ui-monospace, Consolas, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
+  .log-note { flex: none; color: #9ca3af; font-size: 12px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>书签链接有效性检测</h1>
+  <div class="sub">导入书签 HTML → 检测链接 → 管理失效项 → 按需导出（保留原文件夹层级）</div>
+
+  <div class="card">
+    <label class="title">① 选择书签文件（浏览器导出的 .html）</label>
+    <input type="file" id="fileInput" accept=".html,.htm,text/html">
+    <div class="hint" id="fileInfo">尚未选择文件。</div>
+  </div>
+
+  <div class="card">
+    <label class="title">② 跳过检查的关键词（每行一个，链接地址包含任一关键词即跳过检测）</label>
+    <textarea id="filters" rows="5" spellcheck="false" placeholder="localhost&#10;127.0.0.1&#10;192.168.&#10;intranet&#10;example.com&#10;:8080"></textarea>
+    <div class="hint">匹配方式：链接地址转小写后「包含」关键词即命中（不区分大小写）。跳过的链接会原样保留在导出文件中。</div>
+  </div>
+
+  <div class="card">
+    <label class="title">③ 检测选项</label>
+    <div class="row">
+      <label>并发数 <input type="number" id="concurrency" value="8" min="1" max="32"></label>
+      <label>超时(毫秒) <input type="number" id="timeout" value="12000" min="1000" step="1000"></label>
+      <label><input type="checkbox" id="keepHr" checked> 保留 &lt;HR&gt; 分隔线</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <label class="title">④ 导出内容（可多选，支持单独或合并导出）</label>
+    <div class="row">
+      <label><input type="checkbox" id="expOk" checked> 有效链接</label>
+      <label><input type="checkbox" id="expDead"> 失效链接</label>
+      <label><input type="checkbox" id="expSkip" checked> 跳过链接</label>
+    </div>
+    <div class="hint">「导出书签文件」把勾选类别合并为一个文件；「分别导出所选类别」为每个类别生成独立文件。</div>
+  </div>
+
+  <div class="actions">
+    <button id="startBtn" disabled>开始检测</button>
+    <button id="exportBtn" disabled>导出书签文件</button>
+    <button id="exportEachBtn" disabled>分别导出所选类别</button>
+  </div>
+
+  <div class="card">
+    <div class="progress-outer"><div class="progress-inner" id="progressBar"></div></div>
+    <div class="progress-text" id="progressText">等待开始…</div>
+    <div class="stats">
+      <div class="stat ok">有效<b id="statOk">0</b></div>
+      <div class="stat dead">失效<b id="statDead">0</b></div>
+      <div class="stat skip">跳过<b id="statSkip">0</b></div>
+      <div class="stat">总计<b id="statTotal">0</b></div>
+    </div>
+  </div>
+
+  <div class="card" id="manageCard">
+    <div class="tabs">
+      <button id="tabDead" class="active">失效列表 (<span id="deadCount">0</span>)</button>
+      <button id="tabSkip">手动跳过 (<span id="manualSkipCount">0</span>)</button>
+    </div>
+
+    <div id="deadPanel">
+      <div class="panel-toolbar">
+        <label><input type="checkbox" id="deadSelectAll"> 全选</label>
+        <button class="small-btn" id="addToSkipBtn" disabled>加入跳过列表</button>
+        <button class="small-btn" id="addDomainBtn" disabled>把选中域名加入过滤关键词</button>
+      </div>
+      <div class="list-box" id="deadList"><div class="empty">暂无失效链接</div></div>
+    </div>
+
+    <div id="skipPanel" hidden>
+      <div class="panel-toolbar">
+        <span class="hint" style="margin:0">手动跳过的链接不参与检测，导出时按「跳过」处理并保留。</span>
+        <button class="small-btn danger" id="clearManualSkipBtn">清空全部</button>
+      </div>
+      <div class="list-box" id="manualSkipList"><div class="empty">暂无手动跳过的链接</div></div>
+    </div>
+  </div>
+
+  <div id="log"></div>
+
+  <div class="hint" style="max-width:1000px">
+    说明：受浏览器同源策略限制，跨域链接无法读取 HTTP 状态码。工具会先尝试 CORS 请求获取真实状态码；
+    若被跨域拦截，则降级为 no-cors 探测（能连通即视为有效）。因此「服务器返回 404 但无 CORS 头」的链接可能被误判为有效，
+    建议对结果做抽样复核。若浏览器拦截了全部请求，请把本页面放到本地 HTTP 服务下打开，或换用 Chrome / Edge。
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = function (id) { return document.getElementById(id); };
+
+  const els = {
+    file: $('fileInput'),
+    fileInfo: $('fileInfo'),
+    filters: $('filters'),
+    concurrency: $('concurrency'),
+    timeout: $('timeout'),
+    keepHr: $('keepHr'),
+    startBtn: $('startBtn'),
+    exportBtn: $('exportBtn'),
+    exportEachBtn: $('exportEachBtn'),
+    expOk: $('expOk'),
+    expDead: $('expDead'),
+    expSkip: $('expSkip'),
+    progressBar: $('progressBar'),
+    progressTxt: $('progressText'),
+    statOk: $('statOk'),
+    statDead: $('statDead'),
+    statSkip: $('statSkip'),
+    statTotal: $('statTotal'),
+    log: $('log'),
+    tabDead: $('tabDead'),
+    tabSkip: $('tabSkip'),
+    deadCount: $('deadCount'),
+    manualSkipCount: $('manualSkipCount'),
+    deadPanel: $('deadPanel'),
+    skipPanel: $('skipPanel'),
+    deadList: $('deadList'),
+    manualSkipList: $('manualSkipList'),
+    deadSelectAll: $('deadSelectAll'),
+    addToSkipBtn: $('addToSkipBtn'),
+    addDomainBtn: $('addDomainBtn'),
+    clearManualSkipBtn: $('clearManualSkipBtn')
+  };
+
+  const state = {
+    root: null,
+    links: [],
+    fileName: 'bookmarks',
+    running: false,
+    manualSkip: new Set()
+  };
+
+  /* ========================= 通用工具 ========================= */
+  const ENTITY_MAP = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+
+  function decodeEntities(s) {
+    if (!s) return '';
+    return s.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, function (m, g) {
+      if (g.charAt(0) === '#') {
+        const cp = (g.charAt(1) === 'x' || g.charAt(1) === 'X')
+          ? parseInt(g.slice(2), 16)
+          : parseInt(g.slice(1), 10);
+        return isFinite(cp) ? String.fromCodePoint(cp) : m;
+      }
+      const k = g.toLowerCase();
+      return Object.prototype.hasOwnProperty.call(ENTITY_MAP, k) ? ENTITY_MAP[k] : m;
+    });
+  }
+
+  function escapeHTML(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function stripTags(s) {
+    return String(s || '').replace(/<[^>]*>/g, '');
+  }
+
+  function getAttr(attrs, name) {
+    const re = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))', 'i');
+    const m = re.exec(attrs);
+    if (!m) return null;
+    if (m[1] !== undefined) return m[1];
+    if (m[2] !== undefined) return m[2];
+    return m[3];
+  }
+
+  function statusText(status) {
+    if (status === 'ok') return '有效';
+    if (status === 'dead') return '失效';
+    if (status === 'skip') return '跳过';
+    return '未检测';
+  }
+
+  /* ========================= 书签解析器 ========================= */
+  const TAG_RE = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+
+  function findCloseTag(text, from, tagName) {
+    const re = new RegExp('<\\/\\s*' + tagName + '\\s*>', 'i');
+    const rest = text.slice(from);
+    const m = re.exec(rest);
+    if (!m) return { index: text.length, next: text.length };
+    return { index: from + m.index, next: from + m.index + m[0].length };
+  }
+
+  function parseBookmarks(text) {
+    const root = { type: 'root', children: [] };
+    const stack = [root];
+    let pendingFolder = null;
+
+    TAG_RE.lastIndex = 0;
+    let m;
+    while ((m = TAG_RE.exec(text)) !== null) {
+      const closing = m[1] === '/';
+      const name = m[2].toUpperCase();
+      const attrs = m[3] || '';
+
+      if (name === 'DL') {
+        if (closing) {
+          if (stack.length > 1) stack.pop();
+        } else {
+          const parent = pendingFolder || stack[stack.length - 1];
+          stack.push(parent);
+          pendingFolder = null;
+        }
+        continue;
+      }
+
+      if (closing) continue;
+
+      const container = stack[stack.length - 1];
+
+      if (name === 'H3' || name === 'H4') {
+        const end = findCloseTag(text, TAG_RE.lastIndex, name);
+        const inner = text.slice(TAG_RE.lastIndex, end.index);
+        TAG_RE.lastIndex = end.next;
+
+        const folder = {
+          type: 'folder',
+          title: decodeEntities(stripTags(inner)),
+          attrs: attrs,
+          children: [],
+          linkCountBefore: 0
+        };
+        container.children.push(folder);
+        pendingFolder = folder;
+        continue;
+      }
+
+      if (name === 'A') {
+        const rawHref = getAttr(attrs, 'href');
+        const end = findCloseTag(text, TAG_RE.lastIndex, 'A');
+        const inner = text.slice(TAG_RE.lastIndex, end.index);
+        TAG_RE.lastIndex = end.next;
+
+        const link = {
+          type: 'link',
+          title: decodeEntities(stripTags(inner)),
+          attrs: attrs,
+          href: rawHref == null ? '' : decodeEntities(rawHref),
+          status: '',
+          note: '',
+          _prevStatus: '',
+          _deadNote: ''
+        };
+        container.children.push(link);
+        continue;
+      }
+
+      if (name === 'HR') {
+        container.children.push({ type: 'hr' });
+        continue;
+      }
+    }
+
+    (function mark(node) {
+      if (!node.children) return 0;
+      let n = 0;
+      for (const c of node.children) {
+        if (c.type === 'link') n += 1;
+        else if (c.type === 'folder') n += mark(c);
+      }
+      if (node.type === 'folder') node.linkCountBefore = n;
+      return n;
+    })(root);
+
+    return root;
+  }
+
+  function collectLinks(node, arr) {
+    if (!node.children) return;
+    for (const c of node.children) {
+      if (c.type === 'link') arr.push(c);
+      else if (c.type === 'folder') collectLinks(c, arr);
+    }
+  }
+
+  /* ========================= 链接探测 ========================= */
+  function fetchWithTimeout(url, opts, ms) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(function () { ctrl.abort(); }, ms);
+    return fetch(url, Object.assign({}, opts, { signal: ctrl.signal }))
+      .finally(function () { clearTimeout(timer); });
+  }
+
+  async function probe(url, timeout) {
+    try {
+      const res = await fetchWithTimeout(url, {
+        mode: 'cors',
+        credentials: 'omit',
+        redirect: 'follow',
+        cache: 'no-store'
+      }, timeout);
+
+      if (res.type === 'opaque') return { alive: true, note: '可达（跨域不可读状态）' };
+      const code = res.status;
+      if (code >= 400) return { alive: false, note: 'HTTP ' + code };
+      if (code >= 300 && code < 400) return { alive: true, note: 'HTTP ' + code + '（重定向）' };
+      return { alive: true, note: 'HTTP ' + code };
+    } catch (e) {
+      if (e && e.name === 'AbortError') return { alive: false, note: '超时' };
+    }
+
+    try {
+      await fetchWithTimeout(url, {
+        mode: 'no-cors',
+        credentials: 'omit',
+        redirect: 'follow',
+        cache: 'no-store'
+      }, timeout);
+      return { alive: true, note: '可达（CORS 受限，状态未知）' };
+    } catch (e) {
+      if (e && e.name === 'AbortError') return { alive: false, note: '超时' };
+      return { alive: false, note: '无法访问' };
+    }
+  }
+
+  /* ========================= 日志 ========================= */
+  const LOG_LIMIT = 3000;
+  let logCount = 0;
+  let logQueue = [];
+  let logScheduled = false;
+
+  function pushLog(link) {
+    if (logCount >= LOG_LIMIT) return;
+    logCount++;
+    logQueue.push(link);
+    if (!logScheduled) {
+      logScheduled = true;
+      requestAnimationFrame(flushLog);
+    }
+  }
+
+  function flushLog() {
+    logScheduled = false;
+    if (!logQueue.length) return;
+    const frag = document.createDocumentFragment();
+    while (logQueue.length) {
+      const link = logQueue.shift();
+      const row = document.createElement('div');
+      row.className = 'log-item ' + link.status;
+      row.dataset.href = link.href;
+
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + link.status;
+      badge.textContent = statusText(link.status);
+
+      const title = document.createElement('span');
+      title.className = 'log-title';
+      title.textContent = link.title || '(无标题)';
+      title.title = link.title || '';
+
+      const url = document.createElement('span');
+      url.className = 'log-url';
+      url.textContent = link.href;
+      url.title = link.href;
+
+      const note = document.createElement('span');
+      note.className = 'log-note';
+      note.textContent = link.note || '';
+
+      row.append(badge, title, url, note);
+      frag.appendChild(row);
+    }
+    els.log.appendChild(frag);
+  }
+
+  function updateLogRow(href, status, note) {
+    const rows = els.log.querySelectorAll('.log-item');
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.dataset.href !== href) continue;
+      row.className = 'log-item ' + status;
+      const badge = row.querySelector('.badge');
+      if (badge) {
+        badge.className = 'badge ' + status;
+        badge.textContent = statusText(status);
+      }
+      const noteEl = row.querySelector('.log-note');
+      if (noteEl) noteEl.textContent = note || '';
+    }
+  }
+
+  /* ========================= 统计 ========================= */
+  function setProgress(done, total) {
+    const pct = total ? Math.round(done / total * 100) : 0;
+    els.progressBar.style.width = pct + '%';
+    els.progressTxt.textContent = total
+      ? ('进度：' + done + ' / ' + total + '（' + pct + '%）')
+      : '没有需要检测的链接。';
+  }
+
+  function refreshStats(c) {
+    els.statOk.textContent = c.ok;
+    els.statDead.textContent = c.dead;
+    els.statSkip.textContent = c.skip;
+    els.statTotal.textContent = c.ok + c.dead + c.skip;
+  }
+
+  function recomputeStats() {
+    let ok = 0, dead = 0, skip = 0;
+    for (const l of state.links) {
+      if (l.status === 'ok') ok++;
+      else if (l.status === 'dead') dead++;
+      else if (l.status === 'skip') skip++;
+    }
+    refreshStats({ ok: ok, dead: dead, skip: skip });
+  }
+
+  /* ========================= 失效 / 手动跳过面板 ========================= */
+  function renderDeadList() {
+    const deads = state.links.filter(function (l) { return l.status === 'dead'; });
+    els.deadCount.textContent = deads.length;
+    els.deadSelectAll.checked = false;
+    els.deadList.innerHTML = '';
+
+    if (!deads.length) {
+      els.deadList.innerHTML = '<div class="empty">暂无失效链接</div>';
+      els.addToSkipBtn.disabled = true;
+      els.addDomainBtn.disabled = true;
+      return;
+    }
+
+    els.addToSkipBtn.disabled = false;
+    els.addDomainBtn.disabled = false;
+
+    const frag = document.createDocumentFragment();
+    deads.forEach(function (link) {
+      const row = document.createElement('label');
+      row.className = 'list-item';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.dataset.href = link.href;
+
+      const title = document.createElement('span');
+      title.className = 'li-title';
+      title.textContent = link.title || '(无标题)';
+      title.title = link.title || '';
+
+      const url = document.createElement('span');
+      url.className = 'li-url';
+      url.textContent = link.href;
+      url.title = link.href;
+
+      const note = document.createElement('span');
+      note.className = 'li-note';
+      note.textContent = link.note || '';
+
+      row.append(cb, title, url, note);
+      frag.appendChild(row);
+    });
+    els.deadList.appendChild(frag);
+  }
+
+  function renderManualSkipList() {
+    const hrefs = Array.from(state.manualSkip);
+    els.manualSkipCount.textContent = hrefs.length;
+    els.manualSkipList.innerHTML = '';
+
+    if (!hrefs.length) {
+      els.manualSkipList.innerHTML = '<div class="empty">暂无手动跳过的链接</div>';
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    hrefs.forEach(function (href) {
+      const found = state.links.find(function (l) { return l.href === href; });
+
+      const row = document.createElement('div');
+      row.className = 'list-item';
+
+      const title = document.createElement('span');
+      title.className = 'li-title';
+      title.textContent = found && found.title ? found.title : '(无标题)';
+      title.title = title.textContent;
+
+      const url = document.createElement('span');
+      url.className = 'li-url';
+      url.textContent = href;
+      url.title = href;
+
+      const btn = document.createElement('button');
+      btn.className = 'small-btn danger';
+      btn.textContent = '移出';
+      btn.addEventListener('click', function () { removeManualSkip(href); });
+
+      row.append(title, url, btn);
+      frag.appendChild(row);
+    });
+    els.manualSkipList.appendChild(frag);
+  }
+
+  function addSelectedToSkip() {
+    const boxes = els.deadList.querySelectorAll('input[type=checkbox]:checked');
+    if (!boxes.length) return;
+
+    boxes.forEach(function (cb) {
+      const href = cb.dataset.href;
+      state.manualSkip.add(href);
+      state.links.forEach(function (l) {
+        if (l.href === href && l.status === 'dead') {
+          l._prevStatus = 'dead';
+          l._deadNote = l.note;
+          l.status = 'skip';
+          l.note = '手动跳过';
+          updateLogRow(href, 'skip', '手动跳过');
+        }
+      });
+    });
+
+    recomputeStats();
+    renderDeadList();
+    renderManualSkipList();
+  }
+
+  function removeManualSkip(href) {
+    state.manualSkip.delete(href);
+    state.links.forEach(function (l) {
+      if (l.href === href && l.status === 'skip' && l.note === '手动跳过') {
+        l.status = (l._prevStatus === 'dead') ? 'dead' : '';
+        l.note = l.status === 'dead' ? (l._deadNote || '之前检测为失效') : '';
+        updateLogRow(href, l.status, l.note);
+      }
+    });
+    recomputeStats();
+    renderDeadList();
+    renderManualSkipList();
+  }
+
+  function clearManualSkip() {
+    if (!state.manualSkip.size) return;
+    if (!confirm('确定清空全部手动跳过链接吗？这些链接会恢复为检测结果。')) return;
+    const hrefs = Array.from(state.manualSkip);
+    hrefs.forEach(function (href) { removeManualSkip(href); });
+  }
+
+  function addSelectedDomainsToFilter() {
+    const boxes = els.deadList.querySelectorAll('input[type=checkbox]:checked');
+    if (!boxes.length) return;
+
+    const existing = new Set(
+      els.filters.value.split('\n')
+        .map(function (s) { return s.trim(); })
+        .filter(Boolean)
+        .map(function (s) { return s.toLowerCase(); })
+    );
+
+    const added = [];
+    boxes.forEach(function (cb) {
+      let host = '';
+      try { host = new URL(cb.dataset.href).host; } catch (e) { host = ''; }
+      if (!host) return;
+      const lower = host.toLowerCase();
+      if (existing.has(lower)) return;
+      existing.add(lower);
+      added.push(host);
+    });
+
+    if (!added.length) {
+      alert('选中的链接没有可加入的新域名（可能已在关键词列表中）。');
+      return;
+    }
+
+    els.filters.value = Array.from(existing).join('\n');
+    alert('已把 ' + added.length + ' 个域名加入过滤关键词，下次检测时生效。');
+  }
+
+  /* ========================= 标签切换 ========================= */
+  function switchTab(name) {
+    els.tabDead.classList.toggle('active', name === 'dead');
+    els.tabSkip.classList.toggle('active', name === 'skip');
+    els.deadPanel.hidden = name !== 'dead';
+    els.skipPanel.hidden = name !== 'skip';
+  }
+
+  /* ========================= 读取文件 ========================= */
+  els.file.addEventListener('change', async function () {
+    const file = els.file.files && els.file.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const root = parseBookmarks(text);
+      const links = [];
+      collectLinks(root, links);
+
+      state.root = root;
+      state.links = links;
+      state.fileName = file.name.replace(/\.html?$/i, '') || 'bookmarks';
+      state.manualSkip = new Set();
+
+      let folders = 0;
+      (function countFolder(n) {
+        if (!n.children) return;
+        for (const c of n.children) {
+          if (c.type === 'folder') { folders++; countFolder(c); }
+        }
+      })(root);
+
+      els.fileInfo.textContent = '已载入：' + file.name + '　|　书签 ' + links.length +
+        ' 条，文件夹 ' + folders + ' 个。';
+      els.startBtn.disabled = links.length === 0;
+      els.exportBtn.disabled = true;
+      els.exportEachBtn.disabled = true;
+      els.log.innerHTML = '';
+      logCount = 0;
+      logQueue = [];
+      els.progressBar.style.width = '0%';
+      els.progressTxt.textContent = '等待开始…';
+      refreshStats({ ok: 0, dead: 0, skip: 0 });
+      renderDeadList();
+      renderManualSkipList();
+      switchTab('dead');
+    } catch (err) {
+      els.fileInfo.textContent = '读取文件失败：' + err.message;
+    }
+  });
+
+  /* ========================= 执行检测 ========================= */
+  els.startBtn.addEventListener('click', async function () {
+    if (state.running || !state.root) return;
+
+    const keywords = els.filters.value
+      .split('\n')
+      .map(function (s) { return s.trim().toLowerCase(); })
+      .filter(Boolean);
+
+    const timeout = Math.max(1000, parseInt(els.timeout.value, 10) || 12000);
+    const concurrency = Math.max(1, Math.min(32, parseInt(els.concurrency.value, 10) || 8));
+
+    state.running = true;
+    els.startBtn.disabled = true;
+    els.exportBtn.disabled = true;
+    els.exportEachBtn.disabled = true;
+    els.log.innerHTML = '';
+    logCount = 0;
+    logQueue = [];
+    els.deadList.innerHTML = '<div class="empty">检测进行中…</div>';
+    els.deadCount.textContent = '0';
+    els.addToSkipBtn.disabled = true;
+    els.addDomainBtn.disabled = true;
+    els.deadSelectAll.checked = false;
+
+    const counters = { ok: 0, dead: 0, skip: 0 };
+    const queue = [];
+
+    for (const link of state.links) {
+      link.note = '';
+      link.status = '';
+
+      let proto = '';
+      try { proto = new URL(link.href).protocol.toLowerCase(); } catch (e) { proto = ''; }
+
+      if (!/^https?:$/.test(proto)) {
+        link.status = 'skip';
+        link.note = '非 HTTP(S) 链接，跳过';
+        counters.skip++;
+        pushLog(link);
+        continue;
+      }
+
+      if (state.manualSkip.has(link.href)) {
+        link._prevStatus = 'dead';
+        link.status = 'skip';
+        link.note = '手动跳过';
+        counters.skip++;
+        pushLog(link);
+        continue;
+      }
+
+      const lower = link.href.toLowerCase();
+      const hit = keywords.find(function (k) { return lower.indexOf(k) !== -1; });
+      if (hit) {
+        link.status = 'skip';
+        link.note = '命中关键词「' + hit + '」';
+        counters.skip++;
+        pushLog(link);
+        continue;
+      }
+
+      queue.push(link);
+    }
+
+    const total = queue.length;
+    refreshStats(counters);
+    setProgress(0, total);
+
+    if (total === 0) {
+      state.running = false;
+      els.startBtn.disabled = false;
+      els.exportBtn.disabled = false;
+      els.exportEachBtn.disabled = false;
+      els.progressTxt.textContent = '全部链接均被跳过，无需检测。';
+      renderDeadList();
+      renderManualSkipList();
+      return;
+    }
+
+    let cursor = 0;
+    let done = 0;
+
+    async function worker() {
+      while (true) {
+        const i = cursor++;
+        if (i >= total) return;
+        const link = queue[i];
+
+        let result;
+        try {
+          result = await probe(link.href, timeout);
+        } catch (e) {
+          result = { alive: false, note: '异常：' + (e && e.message ? e.message : e) };
+        }
+
+        if (result.alive) {
+          link.status = 'ok';
+          link.note = result.note;
+          counters.ok++;
+        } else {
+          link.status = 'dead';
+          link.note = result.note;
+          counters.dead++;
+        }
+
+        done++;
+        pushLog(link);
+        refreshStats(counters);
+        setProgress(done, total);
+      }
+    }
+
+    const workerCount = Math.min(concurrency, total);
+    const workers = [];
+    for (let i = 0; i < workerCount; i++) workers.push(worker());
+    await Promise.all(workers);
+
+    state.running = false;
+    els.startBtn.disabled = false;
+    els.exportBtn.disabled = false;
+    els.exportEachBtn.disabled = false;
+    els.progressTxt.textContent = '检测完成：有效 ' + counters.ok +
+      ' 条，失效 ' + counters.dead + ' 条，跳过 ' + counters.skip + ' 条。';
+
+    renderDeadList();
+    renderManualSkipList();
+  });
+
+  /* ========================= 剪枝 / 序列化 ========================= */
+  function nodeHasContent(node, predicate) {
+    if (node.type === 'link') return predicate(node);
+    if (!node.children) return false;
+    for (const c of node.children) {
+      if (c.type === 'folder') {
+        if (nodeHasContent(c, predicate)) return true;
+      } else if (c.type === 'link' && predicate(c)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function serialize(nodes, depth, out, keepHr, predicate) {
+    const pad = '    '.repeat(depth);
+    for (const node of nodes) {
+      if (node.type === 'folder') {
+        if (node.linkCountBefore > 0 && !nodeHasContent(node, predicate)) continue;
+        out.push(pad + '<DT><H3' + node.attrs + '>' + escapeHTML(node.title) + '</H3>');
+        out.push(pad + '<DL><p>');
+        serialize(node.children, depth + 1, out, keepHr, predicate);
+        out.push(pad + '</DL><p>');
+      } else if (node.type === 'link') {
+        if (predicate(node)) {
+          out.push(pad + '<DT><A' + node.attrs + '>' + escapeHTML(node.title) + '</A>');
+        }
+      } else if (node.type === 'hr' && keepHr) {
+        out.push(pad + '<HR>');
+      }
+    }
+  }
+
+  function buildBookmarkHTML(predicate) {
+    const anyContent = state.root.children.some(function (c) {
+      return nodeHasContent(c, predicate);
+    });
+    const keepHr = els.keepHr.checked && anyContent;
+
+    const lines = [];
+    lines.push('<!DOCTYPE NETSCAPE-Bookmark-file-1>');
+    lines.push('<!-- This is an automatically generated file.');
+    lines.push('     It will be read and overwritten.');
+    lines.push('     DO NOT EDIT! -->');
+    lines.push('<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">');
+    lines.push('<TITLE>Bookmarks</TITLE>');
+    lines.push('<H1>Bookmarks</H1>');
+    lines.push('<DL><p>');
+    serialize(state.root.children, 1, lines, keepHr, predicate);
+    lines.push('</DL><p>');
+    return lines.join('\n');
+  }
+
+  /* ========================= 导出 ========================= */
+  function download(html, suffix) {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = state.fileName + suffix + '.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+  }
+
+  function makePredicate(modes) {
+    return function (link) {
+      if (modes.ok && link.status === 'ok') return true;
+      if (modes.dead && link.status === 'dead') return true;
+      if (modes.skip && link.status === 'skip') return true;
+      return false;
+    };
+  }
+
+  function modeSuffix(modes) {
+    const parts = [];
+    if (modes.ok) parts.push('valid');
+    if (modes.dead) parts.push('invalid');
+    if (modes.skip) parts.push('skipped');
+    if (parts.length === 3) return '_all';
+    return '_' + parts.join('-');
+  }
+
+  els.exportBtn.addEventListener('click', function () {
+    if (!state.root) return;
+
+    const modes = {
+      ok: els.expOk.checked,
+      dead: els.expDead.checked,
+      skip: els.expSkip.checked
+    };
+    if (!modes.ok && !modes.dead && !modes.skip) {
+      alert('请至少勾选一类导出内容。');
+      return;
+    }
+
+    const predicate = makePredicate(modes);
+    if (!state.links.some(predicate)) {
+      alert('所选类别中没有可导出的链接。');
+      return;
+    }
+
+    download(buildBookmarkHTML(predicate), modeSuffix(modes));
+  });
+
+  els.exportEachBtn.addEventListener('click', function () {
+    if (!state.root) return;
+
+    const targets = [];
+    if (els.expOk.checked) targets.push({ status: 'ok', suffix: '_valid' });
+    if (els.expDead.checked) targets.push({ status: 'dead', suffix: '_invalid' });
+    if (els.expSkip.checked) targets.push({ status: 'skip', suffix: '_skipped' });
+
+    if (!targets.length) {
+      alert('请至少勾选一类导出内容。');
+      return;
+    }
+
+    const existing = targets.filter(function (t) {
+      return state.links.some(function (l) { return l.status === t.status; });
+    });
+
+    if (!existing.length) {
+      alert('所选类别中没有可导出的链接。');
+      return;
+    }
+
+    existing.forEach(function (t, i) {
+      setTimeout(function () {
+        const html = buildBookmarkHTML(function (l) { return l.status === t.status; });
+        download(html, t.suffix);
+      }, i * 500);
+    });
+  });
+
+  /* ========================= 事件绑定 ========================= */
+  els.deadSelectAll.addEventListener('change', function () {
+    const boxes = els.deadList.querySelectorAll('input[type=checkbox]');
+    const checked = els.deadSelectAll.checked;
+    boxes.forEach(function (cb) { cb.checked = checked; });
+  });
+
+  els.addToSkipBtn.addEventListener('click', addSelectedToSkip);
+  els.addDomainBtn.addEventListener('click', addSelectedDomainsToFilter);
+  els.clearManualSkipBtn.addEventListener('click', clearManualSkip);
+
+  els.tabDead.addEventListener('click', function () { switchTab('dead'); });
+  els.tabSkip.addEventListener('click', function () { switchTab('skip'); });
+
+  /* ========================= 初始化 ========================= */
+  renderDeadList();
+  renderManualSkipList();
+
+})();
+</script>
+</body>
+</html>
