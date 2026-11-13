@@ -123,9 +123,27 @@
             font-weight: bold;
             height: 20px;
         }
+        /* 三个操作按钮：边框、字号、圆角、内边距、动画效果完全一致 */
         .config-btn {
             background: #6600cc;
-            margin-left:10px;
+            color: #fff;
+            border: 1px solid #6600cc;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 14px;
+            line-height: 1.4;
+            font-family: inherit;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: background-color .2s ease, border-color .2s ease, transform .1s ease, box-shadow .2s ease;
+        }
+        .config-btn:hover {
+            background: #7a1ae0;
+            border-color: #7a1ae0;
+            box-shadow: 0 0 0 2px rgba(122, 26, 224, .25);
+        }
+        .config-btn:active {
+            transform: scale(.97);
         }
         .back-btn {
             background: #28a745;
