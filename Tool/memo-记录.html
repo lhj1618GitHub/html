@@ -316,7 +316,7 @@
                 </div>
             </div>
             <div class="item">
-                <label>时长（分钟）</label>
+                <label>时长（自动格式化）</label>
                 <input type="text" id="minutes" readonly placeholder="自动计算">
             </div>
             <div class="item">
@@ -482,43 +482,113 @@ function getTimeStamp(dateStr, timeStr) {
     return date.getTime();
 }
 
-// 新增页：计算时长 + 时间校验
+// 新增页：计算时长 + 时间校验（显示真实日历格式化结果）
 function calcMinutes() {
     let sDate = document.getElementById('startDate').value;
     let sTime = document.getElementById('startTime').value;
     let eDate = document.getElementById('endDate').value;
     let eTime = document.getElementById('endTime').value;
+    let box = document.getElementById('minutes');
     let startTs = getTimeStamp(sDate, sTime);
     let endTs = getTimeStamp(eDate, eTime);
-    if (endTs < startTs) {
-        document.getElementById('minutes').value = '请检查开始/结束时间';
+    // 时间不完整时不显示
+    if (!startTs || !endTs) {
+        box.value = '';
         return;
     }
-    let diffMs = endTs - startTs;
-    let diffMin = Math.round(diffMs / (1000 * 60));
-    document.getElementById('minutes').value = diffMin;
+    if (endTs < startTs) {
+        box.value = '请检查开始/结束时间';
+        return;
+    }
+    box.value = formatDurationByTs(startTs, endTs);
 }
 
-// 编辑弹窗：计算时长 + 时间校验
+// 编辑弹窗：计算时长 + 时间校验（显示真实日历格式化结果）
 function calcEditMinutes() {
     let sDate = document.getElementById('ed_sd').value;
     let sTime = document.getElementById('ed_st').value;
     let eDate = document.getElementById('ed_ed').value;
     let eTime = document.getElementById('ed_et').value;
+    let box = document.getElementById('ed_min');
     let startTs = getTimeStamp(sDate, sTime);
     let endTs = getTimeStamp(eDate, eTime);
-    if (endTs < startTs) {
-        document.getElementById('ed_min').value = '请检查开始/结束时间';
+    if (!startTs || !endTs) {
+        box.value = '';
         return;
     }
-    let diffMs = endTs - startTs;
-    let diffMin = Math.round(diffMs / (1000 * 60));
-    document.getElementById('ed_min').value = diffMin;
+    if (endTs < startTs) {
+        box.value = '请检查开始/结束时间';
+        return;
+    }
+    box.value = formatDurationByTs(startTs, endTs);
 }
 
-// 时长格式化
-function formatDuration(totalMin) {
-    if (isNaN(totalMin) || totalMin === 0) return "0";
+/* ================== 时长格式化（真实日历） ================== */
+
+// 年/月/日/时/分 逐级累加，注意月末溢出保护
+function addYearsSafe(d, n) {
+    let y = d.getFullYear() + n;
+    let m = d.getMonth();
+    let maxDay = new Date(y, m + 1, 0).getDate();
+    return new Date(y, m, Math.min(d.getDate(), maxDay),
+        d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+}
+function addMonthsSafe(d, n) {
+    let total = d.getFullYear() * 12 + d.getMonth() + n;
+    let y = Math.floor(total / 12);
+    let m = total % 12;
+    if (m < 0) { m += 12; y -= 1; }
+    let maxDay = new Date(y, m + 1, 0).getDate();
+    return new Date(y, m, Math.min(d.getDate(), maxDay),
+        d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+}
+function addDaysSafe(d, n) {
+    let r = new Date(d.getTime());
+    r.setDate(r.getDate() + n);
+    return r;
+}
+function addHoursSafe(d, n) {
+    return new Date(d.getTime() + n * 3600 * 1000);
+}
+
+// 计算起止时间戳的真实日历差值
+function diffCalendar(startTs, endTs) {
+    let cur = new Date(startTs);
+    let years = 0, months = 0, days = 0, hours = 0, minutes = 0;
+    let next;
+    while ((next = addYearsSafe(cur, 1)).getTime() <= endTs) { years++; cur = next; }
+    while ((next = addMonthsSafe(cur, 1)).getTime() <= endTs) { months++; cur = next; }
+    while ((next = addDaysSafe(cur, 1)).getTime() <= endTs) { days++; cur = next; }
+    while ((next = addHoursSafe(cur, 1)).getTime() <= endTs) { hours++; cur = next; }
+    minutes = Math.round((endTs - cur.getTime()) / 60000);
+    // 四舍五入进位保护
+    if (minutes >= 60) {
+        minutes -= 60;
+        hours++;
+        if (hours >= 24) {
+            hours -= 24;
+            days++;
+        }
+    }
+    return { years, months, days, hours, minutes };
+}
+
+// 按起止时间戳格式化时长（真实日历）
+function formatDurationByTs(startTs, endTs) {
+    if (!startTs || !endTs || endTs < startTs) return '0';
+    const d = diffCalendar(startTs, endTs);
+    let arr = [];
+    if (d.years > 0) arr.push(`${d.years}年`);
+    if (d.months > 0) arr.push(`${d.months}月`);
+    if (d.days > 0) arr.push(`${d.days}日`);
+    if (d.hours > 0) arr.push(`${d.hours}小时`);
+    if (d.minutes > 0) arr.push(`${d.minutes}分钟`);
+    return arr.length ? arr.join(' ') : '0';
+}
+
+// 按分钟数兜底格式化（用于极少数无起止时间的旧数据）
+function formatDurationByMinutes(totalMin) {
+    if (isNaN(totalMin) || totalMin <= 0) return '0';
     const MIN_PER_HOUR = 60;
     const MIN_PER_DAY = 60 * 24;
     const MIN_PER_MONTH = 60 * 24 * 30;
@@ -537,7 +607,17 @@ function formatDuration(totalMin) {
     if (day > 0) arr.push(`${day}日`);
     if (hour > 0) arr.push(`${hour}小时`);
     if (minute > 0) arr.push(`${minute}分钟`);
-    return arr.join(" ");
+    return arr.length ? arr.join(' ') : '0';
+}
+
+// 统一入口：优先按起止时间真实计算，失败时退回分钟数
+function formatDurationFromRange(startDate, startTime, endDate, endTime, fallbackMinutes) {
+    const sTs = getTimeStamp(startDate, startTime);
+    const eTs = getTimeStamp(endDate, endTime);
+    if (sTs && eTs && eTs >= sTs) {
+        return formatDurationByTs(sTs, eTs);
+    }
+    return formatDurationByMinutes(Number(fallbackMinutes || 0));
 }
 
 // 保存新记录
@@ -546,27 +626,32 @@ function saveRecord() {
     let sTime = document.getElementById('startTime').value;
     let eDate = document.getElementById('endDate').value;
     let eTime = document.getElementById('endTime').value;
-    let minutes = document.getElementById('minutes').value.trim();
+    let minutesText = document.getElementById('minutes').value.trim();
     let device = document.getElementById('device').value.trim();
     let problem = document.getElementById('problem').value.trim();
     let content = document.getElementById('content').value.trim();
     let remark = document.getElementById('remark').value.trim();
 
-    if (!sDate || !sTime || !eDate || !eTime || minutes === '' || !device || !problem || !content) {
+    if (!sDate || !sTime || !eDate || !eTime || minutesText === '' || !device || !problem || !content) {
         alert('请填写完整信息');
         return;
     }
-    if (minutes === '请检查开始/结束时间') {
+    if (minutesText === '请检查开始/结束时间') {
         alert('开始时间不能晚于结束时间，请修正后再保存');
         return;
     }
+    // 重新计算原始分钟数用于存储，保证数据准确
+    let startTs = getTimeStamp(sDate, sTime);
+    let endTs = getTimeStamp(eDate, eTime);
+    let diffMin = Math.round((endTs - startTs) / (1000 * 60));
+
     let obj = {
         id: Date.now(),
         startDate: sDate,
         startTime: sTime,
         endDate: eDate,
         endTime: eTime,
-        minutes: minutes,
+        minutes: diffMin,
         device: device,
         problem: problem,
         content: content,
@@ -615,7 +700,8 @@ function renderList(list) {
         return;
     }
     list.forEach((item) => {
-        let durText = formatDuration(Number(item.minutes || 0));
+        // 按真实日历计算时长
+        let durText = formatDurationFromRange(item.startDate, item.startTime, item.endDate, item.endTime, item.minutes);
         let previewContent = escapeHtml(item.content);
         let previewRemark = escapeHtml(item.remark || '无');
         let html = `
@@ -680,6 +766,8 @@ function openEditModal(id) {
     if (idx < 0) return;
     currentEditIndex = idx;
     const item = records[idx];
+    // 回显真实日历格式化时长
+    const durText = formatDurationFromRange(item.startDate, item.startTime, item.endDate, item.endTime, item.minutes);
     const modal = document.getElementById('editModal');
     modal.innerHTML = `
         <div class="modal-mask" onclick="closeEditModal(event)">
@@ -700,8 +788,8 @@ function openEditModal(id) {
                     </div>
                 </div>
                 <div class="item">
-                    <label>时长(分钟)</label>
-                    <input type="text" id="ed_min" value="${escapeHtml(item.minutes || 0)}" readonly>
+                    <label>时长(自动格式化)</label>
+                    <input type="text" id="ed_min" value="${durText}" readonly>
                 </div>
                 <div class="item">
                     <label>标题</label>
@@ -759,26 +847,31 @@ function saveEdit() {
     let sTime = document.getElementById('ed_st').value.trim();
     let eDate = document.getElementById('ed_ed').value;
     let eTime = document.getElementById('ed_et').value.trim();
-    let minutes = document.getElementById('ed_min').value.trim();
+    let minutesText = document.getElementById('ed_min').value.trim();
     let device = document.getElementById('ed_device').value.trim();
     let problem = document.getElementById('ed_prob').value.trim();
     let content = document.getElementById('ed_content').value.trim();
     let remark = document.getElementById('ed_remark').value.trim();
-    if (!sDate || !sTime || !eDate || !eTime || minutes === '' || !device || !problem || !content) {
+    if (!sDate || !sTime || !eDate || !eTime || minutesText === '' || !device || !problem || !content) {
         alert('请完善所有必填项！');
         return;
     }
-    if (minutes === '请检查开始/结束时间') {
+    if (minutesText === '请检查开始/结束时间') {
         alert('开始时间不能晚于结束时间，请修正后再保存');
         return;
     }
+    // 重新计算原始分钟数用于存储
+    let startTs = getTimeStamp(sDate, sTime);
+    let endTs = getTimeStamp(eDate, eTime);
+    let diffMin = Math.round((endTs - startTs) / (1000 * 60));
+
     records[idx] = {
         ...records[idx],
         startDate: sDate,
         startTime: sTime,
         endDate: eDate,
         endTime: eTime,
-        minutes: minutes,
+        minutes: diffMin,
         device, problem, content, remark
     };
     localStorage.setItem('repairRecords', JSON.stringify(records));
