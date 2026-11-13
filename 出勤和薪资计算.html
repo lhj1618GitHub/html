@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>出勤加班薪资计算器-4.0.1</title>
+    <title>出勤加班薪资计算器-4.0.2</title>
     <style>
         * {
             margin: 0;
@@ -127,6 +127,20 @@
             background: #6600cc;
             margin-left:10px;
         }
+        .export-btn {
+            background: #0a7d3f;
+            margin-left:10px;
+        }
+        .export-btn:hover {
+            background: #12a052;
+        }
+        .import-btn {
+            background: #b35c00;
+            margin-left:10px;
+        }
+        .import-btn:hover {
+            background: #d97000;
+        }
         .back-btn {
             background: #28a745;
             margin-left:8px;
@@ -138,9 +152,26 @@
             flex-wrap: wrap;
             gap:10px;
         }
+        #globalTip{
+            position:fixed;
+            top:16px;
+            left:50%;
+            transform:translateX(-50%);
+            background:#0066cc;
+            color:#fff;
+            padding:10px 18px;
+            border-radius:6px;
+            font-size:14px;
+            z-index:999;
+            display:none;
+            box-shadow:0 4px 16px rgba(0,0,0,.6);
+            max-width:90vw;
+        }
     </style>
 </head>
 <body>
+    <div id="globalTip"></div>
+
     <div id="tabBar" class="tab-container">
         <button class="tab-btn active" onclick="switchTab('record')">每日出勤登记</button>
         <button class="tab-btn" onclick="switchTab('stats')">月度统计</button>
@@ -215,7 +246,12 @@
                 <div class="title-row">
                     <div class="card-title">当月薪资明细</div>
                     <select id="salaryMonth" onchange="renderAll()" style="width:auto;min-width:140px;"></select>
-                    <button class="config-btn" onclick="showConfig()">薪资配置</button>
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+                        <button class="config-btn" style="margin-left:0;" onclick="showConfig()">薪资配置</button>
+                        <button class="export-btn" style="margin-left:0;" onclick="exportAllData()" title="把全部出勤记录和薪资配置备份为JSON文件">⬇ 导出数据</button>
+                        <button class="import-btn" style="margin-left:0;" onclick="document.getElementById('importFile').click()" title="从备份文件恢复全部出勤记录和薪资配置">⬆ 导入数据</button>
+                        <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importAllData(event)">
+                    </div>
                 </div>
                 <div id="salaryResult"></div>
             </div>
@@ -272,20 +308,39 @@
 <script>
 const STANDARD_DAYS = 21.75;
 const STANDARD_HOURS_PER_DAY = 8;
-let data = {
-    records: [],
-    setting: {
+
+// 薪资配置默认值（导入时用于补齐缺失字段）
+function defaultSetting(){
+    return {
         baseSalary: 0,
         subsidy: 0,
         bonus: 0,
-        fullAttendBonus:0,
+        fullAttendBonus: 0,
         hourSalary: 0,
         nightSubsidy: 0,
-        endowment:0, medical:0, unemployment:0,
-        injury:0, maternity:0, fund:0,
-        meal:0, deduct:0
-    }
+        endowment: 0, medical: 0, unemployment: 0,
+        injury: 0, maternity: 0, fund: 0,
+        meal: 0, deduct: 0
+    };
+}
+
+let data = {
+    records: [],
+    setting: defaultSetting()
 };
+
+// 通用数值转换
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+
+// 顶部提示（自动消失）
+function showToast(msg, color){
+    const el = document.getElementById("globalTip");
+    el.innerText = msg;
+    el.style.background = color || "#0066cc";
+    el.style.display = "block";
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>{ el.style.display = "none"; }, 2600);
+}
 
 // 生成近5年月份下拉选项
 function initMonthSelects() {
@@ -392,7 +447,15 @@ function toggleLeaveHours(){
 // 读取本地数据
 function loadData(){
     let d = localStorage.getItem("attendanceData");
-    if(d) data = JSON.parse(d);
+    if(d){
+        try{
+            const parsed = JSON.parse(d);
+            data.records = Array.isArray(parsed.records) ? parsed.records : [];
+            data.setting = Object.assign(defaultSetting(), parsed.setting || {});
+        }catch(e){
+            console.warn("本地数据解析失败，已使用默认数据");
+        }
+    }
     renderAll();
 }
 
@@ -515,6 +578,94 @@ function saveSetting(){
     showSetTip("✅ 配置保存成功");
 }
 
+// ============ 数据备份 / 恢复 ============
+
+// 导出全部数据（出勤记录 + 薪资配置）
+function exportAllData(){
+    const payload = {
+        app: "attendance-salary",
+        version: 1,
+        exportAt: new Date().toISOString(),
+        records: data.records,
+        setting: data.setting
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type: "application/json;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `出勤薪资数据备份_${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    showToast(`已导出：出勤记录 ${payload.records.length} 条 + 薪资配置`, "#0a7d3f");
+}
+
+// 导入全部数据（覆盖当前记录与配置）
+function importAllData(ev){
+    const file = ev.target.files && ev.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try{
+            const raw = JSON.parse(e.target.result);
+
+            // 兼容：记录可能在 records / recordList 字段
+            const rawRecords = Array.isArray(raw.records) ? raw.records
+                             : (Array.isArray(raw.recordList) ? raw.recordList : []);
+            const rawSetting = (raw.setting && typeof raw.setting === "object") ? raw.setting : null;
+
+            // 过滤出合法记录
+            const records = rawRecords
+                .filter(r => r && typeof r.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.date))
+                .map(r => ({
+                    date: r.date,
+                    status: r.status || "正常",
+                    leaveHours: num(r.leaveHours),
+                    shift: r.shift === "夜班" ? "夜班" : "白班",
+                    overtimeHours: num(r.overtimeHours),
+                    overtimeType: num(r.overtimeType) || 1.5
+                }));
+
+            if(!records.length && !rawSetting){
+                showToast("文件中没有可导入的数据", "#cc0000");
+                return;
+            }
+
+            const ok = confirm(
+                `即将导入：\n出勤记录 ${records.length} 条\n薪资配置 ${rawSetting ? "有" : "无"}\n\n` +
+                `导入将覆盖当前全部出勤记录和薪资配置，是否继续？`
+            );
+            if(!ok) return;
+
+            // 应用记录
+            data.records = records;
+
+            // 应用配置（缺失字段用默认值补齐）
+            if(rawSetting){
+                const merged = defaultSetting();
+                Object.keys(merged).forEach(k => merged[k] = num(rawSetting[k]));
+                // 若备份中没有小时工资，但存在基本工资，则自动重算
+                if(!merged.hourSalary && merged.baseSalary){
+                    merged.hourSalary = +(merged.baseSalary / (STANDARD_DAYS * STANDARD_HOURS_PER_DAY)).toFixed(3);
+                }
+                data.setting = merged;
+            }
+
+            saveData();
+            loadSettingToForm();
+            renderAll();
+            showToast(`导入成功：出勤记录 ${records.length} 条${rawSetting ? " + 薪资配置" : ""}`, "#0a7d3f");
+        }catch(err){
+            showToast("导入失败：文件不是有效的JSON备份", "#cc0000");
+        }finally{
+            ev.target.value = "";
+        }
+    };
+    reader.readAsText(file, "utf-8");
+}
+
 // 渲染薪资：放假不扣钱、不影响全勤
 function renderSalary(){
     let s = data.setting;
@@ -560,7 +711,7 @@ function renderSalary(){
 <hr style="margin:6px 0;border-color:#333;">
 <p>基本工资：${s.baseSalary.toFixed(2)} 元</p>
 <p>固定补贴：${s.subsidy.toFixed(2)} 元</p>
-</p>月度奖金：${s.bonus.toFixed(2)} 元</p>
+<p>月度奖金：${s.bonus.toFixed(2)} 元</p>
 <p>全勤奖金：${fullBonus.toFixed(2) }元</p>
 <p>夜班补贴：${nightPay.toFixed(2)} 元</p>
 <hr style="margin:6px 0;border-color:#333;">
