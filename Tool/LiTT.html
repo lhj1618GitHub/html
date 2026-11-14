@@ -46,6 +46,8 @@ input[type="text"]::placeholder{color:var(--text-secondary)}
 .help-content p{margin-bottom:5px}
 .help-content ul,.help-content ol{margin-left:15px;margin-bottom:5px}
 .help-content code{background:var(--bg-secondary);padding:2px 5px;border-radius:3px;font-family:Courier New,monospace}
+.help-link{display:inline-block;margin:4px 0 10px;padding:6px 12px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:4px;color:var(--accent);text-decoration:none;font-size:14px;transition:.3s}
+.help-link:hover{background:var(--accent);color:#fff;text-decoration:none}
 .toast{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);padding:8px 16px;background:var(--success);color:#fff;border-radius:4px;z-index:1001;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
 
@@ -201,6 +203,7 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
 <span class="close-btn" id="closeModal">&times;</span>
 <div class="help-content">
 <h2>规则说明页</h2>
+<p><a class="help-link" href="https://lhj1618github.github.io/html/Tool/李跳跳进阶指南.html" target="_blank" rel="noopener">📖 查看《李跳跳进阶指南》</a></p>
 <p>注意：规则里面的文字默认是模糊匹配的，符号都是英文符号；无空格。</p>
 <h3>一：开屏广告规则</h3>
 <p>1.覆盖默认规则：<code>{"keywords":["xxx"]}</code></p>
@@ -280,7 +283,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
       done ? ok() : toast('复制失败，请手动选择复制');
     };
 
-    // 修复原版 navigator.clipboard 不存在时的异常
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
       navigator.clipboard.writeText(text).then(ok, fallback);
     } else {
@@ -288,7 +290,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
     }
   }
 
-  /** 读取输入框中的非负整数，空/非法返回 null */
   function readInt(input) {
     const v = input.value.trim();
     if (!v) return null;
@@ -296,7 +297,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
     return Number.isFinite(n) && n >= 0 ? n : null;
   }
 
-  /** 支持 "=(xxx)" 与 "=xxx" 写法，统一取出内部值 */
   function norm(str) {
     const s = (str || '').trim();
     let m = s.match(/^=\s*\(([^)]*)\)$/);
@@ -309,7 +309,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
   const getTrigger = () => norm(dom.triggerInput.value);
   const getTarget = () => norm(dom.targetInput.value) || 'GLOBAL_ACTION_BACK';
 
-  /** 弹窗类通用参数（按输入框实时读取） */
   function popupParams() {
     const params = [];
     const st = readInt(dom.checkInput);
@@ -319,7 +318,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
     return params;
   }
 
-  /** 把参数拼到 JSON 对象末尾（参数为空则原样返回） */
   function withParams(obj, params) {
     const s = JSON.stringify(obj);
     if (!params.length) return s;
@@ -343,7 +341,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
   }
 
   function makeGeneral() {
-    // 开屏广告模式：生成 keywords_append
     if (dom.toggleSwitch.checked) {
       const kw = norm(dom.targetInput.value);
       if (!kw) return toast('请填写跳过按钮文字 / id / bounds');
@@ -448,7 +445,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
 
     const out = {};
 
-    // 1. 数组型规则项：去重后按「当前规则 → 待合并规则」顺序拼接
     const popup = uniq([...arr(cur.popup_rules), ...arr(inc.popup_rules)]);
     if (popup.length) out.popup_rules = popup;
 
@@ -458,7 +454,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
     const keywordsAppend = uniq([...arr(cur.keywords_append), ...arr(inc.keywords_append)]);
     if (keywordsAppend.length) out.keywords_append = keywordsAppend;
 
-    // 2. 其它标量参数：已存在的以当前规则为准
     const skip = new Set(['popup_rules', 'keywords', 'keywords_append']);
     const keys = new Set([...Object.keys(cur), ...Object.keys(inc)]);
     keys.forEach(k => {
@@ -466,7 +461,6 @@ input[type="text"],.clear-btn{padding:6px;font-size:12px}
       out[k] = (k in cur) ? cur[k] : inc[k];
     });
 
-    // 3. unite_popup_rules 取或，任一开启即开启
     if ('unite_popup_rules' in out) {
       out.unite_popup_rules = !!(cur.unite_popup_rules || inc.unite_popup_rules);
     }
