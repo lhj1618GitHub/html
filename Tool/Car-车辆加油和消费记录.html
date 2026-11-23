@@ -177,6 +177,63 @@ tailwind.config={theme:{extend:{colors:{primary:'#165DFF',fuel:'#FF7D00',cost:'#
   </div>
 </div>
 
+<!-- 修改加油记录弹窗 -->
+<div id="fuelEditModal" class="base-modal">
+  <div class="modal-inner">
+    <div class="mb-6"><button onclick="closeFuelEdit()" class="flex items-center text-gray-300 hover:text-white gap-1"><i class="fa fa-arrow-left"></i>返回</button></div>
+    <div class="bg-darkCard rounded-lg p-5 card-shadow">
+      <h2 class="text-lg font-semibold mb-4 flex items-center gap-2"><i class="fa fa-pencil text-fuel"></i>修改加油记录</h2>
+      <input type="hidden" id="editFuelId">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">加油日期</label>
+          <input type="date" id="editFuelDate" class="w-full border border-gray-600 bg-darkInput rounded px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">油价（元/L）</label>
+          <input type="number" step="0.01" min="0.01" id="editFuelPrice" class="w-full border border-gray-600 bg-darkInput rounded px-3 py-2" oninput="updateEditFuelL()">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">本次加油金额（元）</label>
+          <input type="number" step="0.01" min="0.01" id="editFuelMoney" class="w-full border border-gray-600 bg-darkInput rounded px-3 py-2" oninput="updateEditFuelL()">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">当前总里程（km）</label>
+          <input type="number" step="1" min="1" id="editFuelMile" class="w-full border border-gray-600 bg-darkInput rounded px-3 py-2">
+        </div>
+        <p class="text-xs text-gray-500">本次加油量：<span id="editFuelL" class="text-fuel font-medium">0.00</span> L（按金额 / 油价自动计算）</p>
+        <button onclick="saveFuelEdit()" class="bg-primary text-white px-5 py-2 rounded hover:opacity-90 w-full flex items-center justify-center gap-1"><i class="fa fa-save"></i>保存修改</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 修改消费记录弹窗 -->
+<div id="costEditModal" class="base-modal">
+  <div class="modal-inner">
+    <div class="mb-6"><button onclick="closeCostEdit()" class="flex items-center text-gray-300 hover:text-white gap-1"><i class="fa fa-arrow-left"></i>返回</button></div>
+    <div class="bg-darkCard rounded-lg p-5 card-shadow">
+      <h2 class="text-lg font-semibold mb-4 flex items-center gap-2"><i class="fa fa-pencil text-cost"></i>修改消费记录</h2>
+      <input type="hidden" id="editCostId">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">消费日期</label>
+          <input type="date" id="editCostDate" class="w-full border border-gray-600 bg-darkInput rounded px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">消费金额（元）</label>
+          <input type="number" step="0.01" min="0.01" id="editCostMoney" class="w-full border border-gray-600 bg-darkInput rounded px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">消费类型/备注</label>
+          <input type="text" id="editCostRemark" class="w-full border border-gray-600 bg-darkInput rounded px-3 py-2">
+        </div>
+        <button onclick="saveCostEdit()" class="bg-primary text-white px-5 py-2 rounded hover:opacity-90 w-full flex items-center justify-center gap-1"><i class="fa fa-save"></i>保存修改</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const KEY_FUEL = "car_fuel_list", KEY_COST = "car_cost_list", KEY_INSURE = "car_insure_data";
 const BACKUP_FILE_NAME = "Car-车辆加油和消费记录.json";
@@ -185,6 +242,8 @@ let backupLoading = false;
 
 const modal = document.getElementById("insureModal");
 const settingsModal = document.getElementById("settingsModal");
+const fuelEditModal = document.getElementById("fuelEditModal");
+const costEditModal = document.getElementById("costEditModal");
 
 // ============ 工具函数 ============
 const $ = id => document.getElementById(id);
@@ -308,7 +367,54 @@ const delFuel = id => {
   refreshAll();
 };
 
-// ============ 首页油耗统计（优化版：满箱法 + 异常保护）============
+// ============ 修改加油记录 ============
+function openFuelEdit(id) {
+  const item = getFuel().find(i => Number(i.id) === Number(id));
+  if (!item) return alert("记录不存在，可能已被删除");
+  $("editFuelId").value = item.id;
+  $("editFuelDate").value = item.date || "";
+  $("editFuelPrice").value = item.price ?? "";
+  $("editFuelMoney").value = item.money ?? "";
+  $("editFuelMile").value = item.mile ?? "";
+  updateEditFuelL();
+  fuelEditModal.classList.add("show");
+}
+const closeFuelEdit = () => fuelEditModal.classList.remove("show");
+
+function updateEditFuelL() {
+  const price = Number($("editFuelPrice").value);
+  const money = Number($("editFuelMoney").value);
+  $("editFuelL").innerText = (price > 0 && money > 0) ? (money / price).toFixed(2) : "0.00";
+}
+
+function saveFuelEdit() {
+  const id = Number($("editFuelId").value);
+  const date = $("editFuelDate").value;
+  const price = Number($("editFuelPrice").value);
+  const money = Number($("editFuelMoney").value);
+  const mile = Number($("editFuelMile").value);
+  if (!date || !(price > 0) || !(money > 0) || !(mile > 0)) return alert("请填全加油信息（油价、金额、里程均需大于 0）");
+
+  const list = getFuel();
+  const idx = list.findIndex(i => Number(i.id) === id);
+  if (idx < 0) return alert("记录不存在，可能已被删除");
+
+  list[idx] = {
+    ...list[idx],
+    date,
+    price,
+    money,
+    mile,
+    fuelL: (money / price).toFixed(2)
+  };
+  list.sort((a, b) => Number(a.mile) - Number(b.mile));
+  saveFuel(list);
+  closeFuelEdit();
+  refreshAll();
+  alert("修改成功");
+}
+
+// ============ 首页油耗统计（满箱法 + 异常保护）============
 function calcFuelAvg() {
   const list = getFuel()
     .filter(i => i && i.date && Number(i.mile) > 0)
@@ -324,28 +430,21 @@ function calcFuelAvg() {
   const prev = list[list.length - 2];
   const curr = list[list.length - 1];
 
-  // 总行驶里程 = 最新里程 - 最早里程（全量数据）
   const totalDrive = Number(curr.mile) - Number(first.mile);
   elKm.innerText = totalDrive > 0 ? totalDrive + " km" : "暂无数据";
 
-  // 本次区间：上次加油 → 本次加油
   const driveThis = Number(curr.mile) - Number(prev.mile);
   const litersThis = fuelLiters(curr);
   const moneyThis = Number(curr.money) || 0;
 
-  if (driveThis > 0 && litersThis > 0) {
-    elAvg.innerText = (litersThis / driveThis * 100).toFixed(2) + " L/100km";
-  } else {
-    elAvg.innerText = "暂无数据";
-  }
+  elAvg.innerText = (driveThis > 0 && litersThis > 0)
+    ? (litersThis / driveThis * 100).toFixed(2) + " L/100km"
+    : "暂无数据";
 
-  if (driveThis > 0 && moneyThis > 0) {
-    elPer.innerText = (moneyThis / driveThis).toFixed(3) + " 元/km";
-  } else {
-    elPer.innerText = "暂无数据";
-  }
+  elPer.innerText = (driveThis > 0 && moneyThis > 0)
+    ? (moneyThis / driveThis).toFixed(3) + " 元/km"
+    : "暂无数据";
 
-  // 间隔天数：修正原来的正负号问题
   const gap = Math.abs(dayDiff(prev.date, curr.date));
   elGap.innerText = isFinite(gap) ? gap + " 天" : "暂无数据";
 }
@@ -365,7 +464,6 @@ const saveInsure = () => {
   renderRemind();
 };
 
-// 到期提醒渲染
 function renderRemind() {
   const data = getInsure(), wrap = $("remindBox");
   if (!data.insure && !data.maintain) {
@@ -410,6 +508,37 @@ const delCost = id => {
   calcTotal(currentFilter);
   renderAllRecords();
 };
+
+// ============ 修改消费记录 ============
+function openCostEdit(id) {
+  const item = getCost().find(i => Number(i.id) === Number(id));
+  if (!item) return alert("记录不存在，可能已被删除");
+  $("editCostId").value = item.id;
+  $("editCostDate").value = item.date || "";
+  $("editCostMoney").value = item.money ?? "";
+  $("editCostRemark").value = item.remark || "";
+  costEditModal.classList.add("show");
+}
+const closeCostEdit = () => costEditModal.classList.remove("show");
+
+function saveCostEdit() {
+  const id = Number($("editCostId").value);
+  const date = $("editCostDate").value;
+  const money = Number($("editCostMoney").value);
+  const remark = $("editCostRemark").value.trim();
+  if (!date || !(money > 0) || !remark) return alert("请填全消费信息");
+
+  const list = getCost();
+  const idx = list.findIndex(i => Number(i.id) === id);
+  if (idx < 0) return alert("记录不存在，可能已被删除");
+
+  list[idx] = { ...list[idx], date, money, remark };
+  saveCost(list);
+  closeCostEdit();
+  calcTotal(currentFilter);
+  renderAllRecords();
+  alert("修改成功");
+}
 
 // ============ 数据备份 / 恢复（手动）============
 function exportAllData() {
@@ -607,7 +736,6 @@ async function loadRepoBackup() {
     return;
   }
 
-  // 兼容多种结构
   const incomingFuel = Array.isArray(data.fuel) ? data.fuel
     : Array.isArray(data.fuelList) ? data.fuelList
     : Array.isArray(data) ? data : [];
@@ -620,7 +748,6 @@ async function loadRepoBackup() {
   const fuelRes = mergeFuelLists(getFuel(), incomingFuel);
   const costRes = mergeCostLists(getCost(), incomingCost);
 
-  // 保险保养设置：当前为空时才用备份补全（不覆盖用户设置）
   let insureUpdated = false;
   const curInsure = lsGet(KEY_INSURE);
   const curHas = curInsure.length && (curInsure[0].insure || curInsure[0].maintain);
@@ -643,7 +770,7 @@ async function loadRepoBackup() {
   backupLoading = false;
 }
 
-// ============ 周期统计（优化版：满箱法，剔除起始油量）============
+// ============ 周期统计（满箱法，剔除起始油量）============
 function getStartDate(type) {
   const now = new Date();
   let start = null, tip = "全部时间";
@@ -657,7 +784,6 @@ function calcTotal(type) {
   const { start, tip } = getStartDate(type);
   $("filterTip").innerText = tip;
 
-  // ---- 加油数据（按里程排序，保证区间连续）----
   const fuelAll = getFuel().filter(i => i && i.date && Number(i.mile) > 0);
   const fuelFilter = (start ? fuelAll.filter(i => new Date(i.date) >= start) : fuelAll.slice())
     .sort((a, b) => Number(a.mile) - Number(b.mile));
@@ -669,7 +795,6 @@ function calcTotal(type) {
     fuelSumL += fuelLiters(i);
   });
 
-  // 满箱法：区间内「第一次加油」的油量属于区间开始前的存量，不计入本区间消耗
   let driveKm = 0, avgFuel100 = 0, costPerKm = 0;
   if (fuelFilter.length >= 2) {
     const first = fuelFilter[0];
@@ -683,7 +808,6 @@ function calcTotal(type) {
     }
   }
 
-  // ---- 平均加油周期（按日期排序，取绝对天数）----
   let avgGapDay = 0;
   if (fuelFilter.length >= 2) {
     const byDate = fuelFilter.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -694,12 +818,10 @@ function calcTotal(type) {
     avgGapDay = totalGap / (byDate.length - 1);
   }
 
-  // ---- 其它消费 ----
   const costAll = getCost().filter(i => i && i.date);
   const costFilter = start ? costAll.filter(i => new Date(i.date) >= start) : costAll;
   const costSumMoney = costFilter.reduce((s, i) => s + (Number(i.money) || 0), 0);
 
-  // ---- 赋值页面 ----
   $("statFuelCount").innerText = fuelCount + " 次";
   $("statFuelMoney").innerText = fuelSumMoney.toFixed(2) + " 元";
   $("statCostMoney").innerText = costSumMoney.toFixed(2) + " 元";
@@ -712,7 +834,7 @@ function calcTotal(type) {
   renderAllRecords();
 }
 
-// ============ 列表渲染 ============
+// ============ 列表渲染（含修改 / 删除按钮）============
 function renderAllRecords() {
   const { start } = getStartDate(currentFilter);
 
@@ -721,8 +843,11 @@ function renderAllRecords() {
   let fuelHtml = fuelArr.length ? "" : "<div class='text-gray-400'>当前周期无加油数据</div>";
   fuelArr.forEach(item => {
     fuelHtml += `<div class="border border-gray-700 p-2 rounded mb-2 text-sm flex justify-between items-center gap-2">
-      <span class="text-gray-300">${item.date} · ${item.price} 元/L · ${item.money} 元 · ${Number(item.fuelL).toFixed(2)} L · 里程 ${item.mile}</span>
-      <button onclick="delFuel(${item.id})" class="text-warn text-sm shrink-0"><i class="fa fa-times"></i></button>
+      <span class="text-gray-300 break-all">${item.date} · ${item.price} 元/L · ${item.money} 元 · ${Number(item.fuelL).toFixed(2)} L · 里程 ${item.mile}</span>
+      <span class="flex items-center gap-2 shrink-0">
+        <button onclick="openFuelEdit(${item.id})" title="修改" class="text-primary hover:opacity-80 text-sm"><i class="fa fa-pencil"></i></button>
+        <button onclick="delFuel(${item.id})" title="删除" class="text-warn hover:opacity-80 text-sm"><i class="fa fa-times"></i></button>
+      </span>
     </div>`;
   });
   $("fuelListWrap").innerHTML = fuelHtml;
@@ -732,8 +857,11 @@ function renderAllRecords() {
   let costHtml = costArr.length ? "" : "<div class='text-gray-400'>当前周期无消费数据</div>";
   costArr.forEach(item => {
     costHtml += `<div class="border border-gray-700 p-2 rounded mb-2 text-sm flex justify-between items-center gap-2">
-      <span class="text-gray-300">${item.date} · ${item.remark} · ${item.money} 元</span>
-      <button onclick="delCost(${item.id})" class="text-warn text-sm shrink-0"><i class="fa fa-times"></i></button>
+      <span class="text-gray-300 break-all">${item.date} · ${item.remark} · ${item.money} 元</span>
+      <span class="flex items-center gap-2 shrink-0">
+        <button onclick="openCostEdit(${item.id})" title="修改" class="text-primary hover:opacity-80 text-sm"><i class="fa fa-pencil"></i></button>
+        <button onclick="delCost(${item.id})" title="删除" class="text-warn hover:opacity-80 text-sm"><i class="fa fa-times"></i></button>
+      </span>
     </div>`;
   });
   $("costListWrap").innerHTML = costHtml;
