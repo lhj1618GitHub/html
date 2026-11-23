@@ -57,6 +57,11 @@
         background-clip:text;
         color:transparent;
         margin-bottom:5px;
+        /* 隐藏入口：连续点击三次恢复存档 */
+        cursor:pointer;
+        user-select:none;
+        -webkit-user-select:none;
+        -webkit-tap-highlight-color:transparent;
     }
 
     .app-header p{color:var(--text-dim);font-size:.8em;}
@@ -784,7 +789,7 @@
 <body>
 
 <header class="app-header">
-    <h1>GitHub 版本检测 &amp; 下载</h1>
+    <h1 id="app-title">GitHub 版本检测 &amp; 下载</h1>
     <p>追踪仓库 Release 版本 · 一键对比与下载</p>
 </header>
 
@@ -944,6 +949,14 @@
     var STORAGE_KEY = 'github_version_list';
     var TOKEN_KEY = 'github_api_token';
 
+    /* 隐藏存档文件名（放在与本页面同一目录下） */
+    var RESTORE_FILE = 'GitHub版本检测&下载.json';
+
+    /* 连续点击标题多少次触发恢复 */
+    var TITLE_CLICK_TIMES = 3;
+    /* 每次点击之间的最大间隔（毫秒） */
+    var TITLE_CLICK_WINDOW = 1500;
+
     var STATUS_META = {
         '待检测':   { cls: 'pending',  label: '待检测' },
         '检测中':   { cls: 'checking', label: '检测中…' },
@@ -959,7 +972,10 @@
     var currentEditIndex = -1;
     var currentDownloadIndex = -1;
     var isChecking = false;
+    var isRestoring = false;
     var confirmResolver = null;
+    var titleClickCount = 0;
+    var titleClickTimer = null;
     var el = {};
 
     /* ==================== 工具函数 ==================== */
@@ -1040,6 +1056,8 @@
             node.style.transform = 'translateY(8px)';
             setTimeout(function () { node.remove(); }, 260);
         }, 2600);
+
+        return node;
     }
 
     function copyText(text) {
@@ -1233,6 +1251,140 @@
         item.status = (item.localVersion && item.localVersion === item.latestVersion)
             ? '已是最新'
             : '有新版本';
+    }
+
+    /**
+     * 把一批记录合并进当前列表（自动去重、跳过无效项）
+     * 支持 {url, localVersion} 或完整记录格式
+     * @returns {{added:number, skipped:number, invalid:number}}
+     */
+    function mergeRecords(data) {
+        var result = { added: 0, skipped: 0, invalid: 0 };
+        if (!Array.isArray(data)) return result;
+
+        data.forEach(function (raw) {
+            if (!raw || typeof raw !== 'object' || typeof raw.url !== 'string') {
+                result.invalid++;
+                return;
+            }
+
+            var url = normalizeUrl(raw.url);
+            if (!parseRepo(url)) {
+                result.invalid++;
+                return;
+            }
+
+            var key = repoKey(url);
+            var exists = repoList.some(function (item) {
+                return repoKey(item.url) === key;
+            });
+
+            if (exists) {
+                result.skipped++;
+                return;
+            }
+
+            var record = normalizeRecord(raw);
+            record.url = url;
+            record.error = '';
+            refreshStatus(record);
+            repoList.push(record);
+
+            result.added++;
+        });
+
+        return result;
+    }
+
+    function buildMergeMessage(prefix, result) {
+        var msg = prefix + '，新增 ' + result.added + ' 个';
+        if (result.skipped) msg += '，跳过重复 ' + result.skipped + ' 个';
+        if (result.invalid) msg += '，忽略无效 ' + result.invalid + ' 个';
+        return msg;
+    }
+
+    /* ==================== 隐藏功能：三连击标题恢复存档 ==================== */
+
+    /**
+     * 计算存档文件地址：始终相对「当前页面所在目录」，
+     * 兼容 GitHub Pages 的子路径部署，并且正确转义中文与 & 符号。
+     */
+    function archiveFileUrl() {
+        var base = location.href.split('#')[0].split('?')[0];
+        var dir = base.slice(0, base.lastIndexOf('/') + 1);
+        return dir + encodeURIComponent(RESTORE_FILE);
+    }
+
+    async function restoreFromArchive() {
+        if (isChecking || isRestoring) {
+            toast('正在处理中，请稍后再试', 'error');
+            return;
+        }
+
+        isRestoring = true;
+        var tip = toast('正在加载仓库存档…');
+
+        try {
+            /* no-store：避免浏览器缓存导致读到旧存档 */
+            var res = await fetch(archiveFileUrl(), { cache: 'no-store' });
+
+            if (!res.ok) {
+                throw new Error(res.status === 404
+                    ? '仓库目录下未找到 ' + RESTORE_FILE
+                    : '请求失败（HTTP ' + res.status + '）');
+            }
+
+            var text = await res.text();
+            var data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                throw new Error('存档不是有效的 JSON');
+            }
+
+            /* 兼容 [{...}] / {repos:[...]} / {list:[...]} 等写法 */
+            if (data && !Array.isArray(data) && typeof data === 'object') {
+                data = data.repos || data.list || data.items || data.records || data.data || null;
+            }
+
+            if (!Array.isArray(data)) {
+                throw new Error('存档内容不是项目数组');
+            }
+
+            var result = mergeRecords(data);
+            saveData();
+            render();
+
+            toast(
+                buildMergeMessage('存档已恢复', result),
+                result.added ? 'success' : 'error'
+            );
+        } catch (err) {
+            toast('存档加载失败：' + ((err && err.message) || '未知错误'), 'error');
+        } finally {
+            isRestoring = false;
+            if (tip) tip.remove();
+        }
+    }
+
+    function handleTitleClick() {
+        titleClickCount++;
+
+        if (titleClickTimer) {
+            clearTimeout(titleClickTimer);
+            titleClickTimer = null;
+        }
+
+        if (titleClickCount >= TITLE_CLICK_TIMES) {
+            titleClickCount = 0;
+            restoreFromArchive();
+            return;
+        }
+
+        titleClickTimer = setTimeout(function () {
+            titleClickCount = 0;
+            titleClickTimer = null;
+        }, TITLE_CLICK_WINDOW);
     }
 
     /* ==================== 渲染 ==================== */
@@ -1803,55 +1955,14 @@
                 return;
             }
 
-            var added = 0;
-            var skipped = 0;
-            var invalid = 0;
-
-            data.forEach(function (raw) {
-                if (!raw || typeof raw.url !== 'string') {
-                    invalid++;
-                    return;
-                }
-
-                var url = normalizeUrl(raw.url);
-                if (!parseRepo(url)) {
-                    invalid++;
-                    return;
-                }
-
-                var key = repoKey(url);
-                var exists = repoList.some(function (item) {
-                    return repoKey(item.url) === key;
-                });
-
-                if (exists) {
-                    skipped++;
-                    return;
-                }
-
-                repoList.push({
-                    url: url,
-                    localVersion: typeof raw.localVersion === 'string'
-                        ? raw.localVersion.trim()
-                        : '',
-                    latestVersion: '',
-                    publishTime: '',
-                    status: '待检测',
-                    error: '',
-                    assets: []
-                });
-
-                added++;
-            });
-
+            var result = mergeRecords(data);
             saveData();
             render();
 
-            var msg = '导入完成，新增 ' + added + ' 个';
-            if (skipped) msg += '，跳过重复 ' + skipped + ' 个';
-            if (invalid) msg += '，忽略无效 ' + invalid + ' 个';
-
-            toast(msg, added ? 'success' : 'error');
+            toast(
+                buildMergeMessage('导入完成', result),
+                result.added ? 'success' : 'error'
+            );
         };
 
         reader.onerror = function () {
@@ -1883,6 +1994,9 @@
     }
 
     function bindEvents() {
+        /* 隐藏功能：连续点击标题三次，从仓库加载存档 */
+        el.title.addEventListener('click', handleTitleClick);
+
         el.toggleAddBtn.addEventListener('click', function () {
             toggleAddPanel();
         });
@@ -1967,6 +2081,7 @@
     function cacheElements() {
         el.toastWrap = document.getElementById('toast-wrap');
 
+        el.title = document.getElementById('app-title');
         el.toggleAddBtn = document.getElementById('toggle-add');
         el.checkAllBtn = document.getElementById('check-all');
         el.exportBtn = document.getElementById('export-btn');
