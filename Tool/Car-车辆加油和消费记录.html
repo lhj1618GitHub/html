@@ -120,9 +120,8 @@ tailwind.config={theme:{extend:{colors:{primary:'#165DFF',fuel:'#FF7D00',cost:'#
         <div class="p-3 bg-gray-800 rounded"><p class="text-gray-400 text-sm">期间共行驶里程</p><p id="statDriveKm" class="text-xl font-bold text-primary">0 km</p></div>
         <div class="p-3 bg-gray-800 rounded"><p class="text-gray-400 text-sm">期间平均油耗/100km</p><p id="statAvgFuel" class="text-xl font-bold text-fuel">0.00 L/100km</p></div>
         <div class="p-3 bg-gray-800 rounded"><p class="text-gray-400 text-sm">期间每公里油费/km</p><p id="statCostPerKm" class="text-xl font-bold text-orange-400">0.00 元/km</p></div>
-
       </div>
-      <div class="text-sm text-gray-400 mb-4 text-gray-400">当前筛选周期：<span id="filterTip">全部时间</span></div>
+      <div class="text-sm text-gray-400 mb-4">当前筛选周期：<span id="filterTip">全部时间</span></div>
     </div>
     <div class="grid md:grid-cols-2 gap-6">
       <div class="bg-darkCard rounded-lg p-5 card-shadow">
@@ -162,7 +161,8 @@ tailwind.config={theme:{extend:{colors:{primary:'#165DFF',fuel:'#FF7D00',cost:'#
   <div class="modal-inner">
     <div class="mb-6"><button onclick="closeSettings()" class="flex items-center text-gray-300 hover:text-white gap-1"><i class="fa fa-arrow-left"></i>返回主界面</button></div>
     <div class="bg-darkCard rounded-lg p-5 card-shadow">
-      <h2 class="text-lg font-semibold mb-4 flex items-center gap-2"><i class="fa fa-cog text-primary"></i>数据备份与恢复</h2>
+      <!-- 隐藏入口：连续点击此标题 3 次，从站点目录加载备份 JSON 并追加 -->
+      <h2 id="secretBackupTitle" class="text-lg font-semibold mb-4 flex items-center gap-2 select-none"><i class="fa fa-cog text-primary"></i>数据备份与恢复</h2>
       <p class="text-sm text-gray-400 mb-4 leading-relaxed">
         导出会把当前全部加油记录、消费记录以及保险保养到期设置保存为一个 JSON 备份文件；
         导入会用备份文件覆盖当前全部数据，请谨慎操作。
@@ -179,26 +179,62 @@ tailwind.config={theme:{extend:{colors:{primary:'#165DFF',fuel:'#FF7D00',cost:'#
 
 <script>
 const KEY_FUEL = "car_fuel_list", KEY_COST = "car_cost_list", KEY_INSURE = "car_insure_data";
+const BACKUP_FILE_NAME = "Car-车辆加油和消费记录.json";
 let currentFilter = "all";
+let backupLoading = false;
+
 const modal = document.getElementById("insureModal");
 const settingsModal = document.getElementById("settingsModal");
-// 工具函数
+
+// ============ 工具函数 ============
 const $ = id => document.getElementById(id);
-const lsGet = k => JSON.parse(localStorage.getItem(k) || "[]");
-const lsSet = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-const dayDiff = (d1, d2) => Math.round((new Date(d2) - new Date(d1)) / (1000 * 3600 * 24));
-// 初始化
-window.onload = () => {
-  initTab(); loadInsureData(); calcFuelAvg(); calcTotal("all"); renderAllRecords(); renderRemind();
-  const today = new Date().toISOString().split("T")[0];
-  $("fuelDate").value = today; $("costDate").value = today;
+const lsGet = k => {
+  try {
+    const v = JSON.parse(localStorage.getItem(k) || "[]");
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
 };
-// 弹窗
+const lsSet = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const dayDiff = (d1, d2) => Math.round((new Date(d2) - new Date(d1)) / 86400000);
+
+/** 取一条加油记录的实际升数（fuelL 缺失时用 金额/油价 兜底） */
+function fuelLiters(rec) {
+  if (!rec) return 0;
+  const l = Number(rec.fuelL);
+  if (isFinite(l) && l > 0) return l;
+  const price = Number(rec.price), money = Number(rec.money);
+  if (isFinite(price) && price > 0 && isFinite(money) && money > 0) return money / price;
+  return 0;
+}
+
+// ============ 初始化 ============
+window.onload = () => {
+  initTab();
+  loadInsureData();
+  calcFuelAvg();
+  calcTotal("all");
+  renderAllRecords();
+  renderRemind();
+  bindSecretBackupTitle();
+  const today = new Date().toISOString().split("T")[0];
+  $("fuelDate").value = today;
+  $("costDate").value = today;
+};
+
+function refreshAll() {
+  loadInsureData();
+  calcFuelAvg();
+  calcTotal(currentFilter || "all");
+  renderRemind();
+}
+
+// ============ 弹窗 ============
 const openModal = () => modal.classList.add("show");
 const closeModal = () => { modal.classList.remove("show"); renderRemind(); };
 const openSettings = () => settingsModal.classList.add("show");
 const closeSettings = () => settingsModal.classList.remove("show");
-// 标签切换
+
+// ============ 标签切换 ============
 function initTab() {
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.onclick = () => {
@@ -207,114 +243,175 @@ function initTab() {
       btn.classList.add("tab-active");
       document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
       $(target).classList.remove("hidden");
-      if(target === "recordList") renderAllRecords();
-      if(target === "cost") renderRemind();
-    }
-  })
+      if (target === "recordList") renderAllRecords();
+      if (target === "cost") renderRemind();
+    };
+  });
 }
-// 加油记录
+
+// ============ 加油记录 ============
 const getFuel = () => lsGet(KEY_FUEL);
 const saveFuel = arr => lsSet(KEY_FUEL, arr);
+
 function addFuelRecord() {
-  const date = $("fuelDate").value, price = Number($("fuelPrice").value), money = Number($("fuelMoney").value), mile = Number($("fuelMile").value);
-  if(!date || isNaN(price) || isNaN(money) || isNaN(mile)) return alert("请填全加油信息");
+  const date = $("fuelDate").value;
+  const price = Number($("fuelPrice").value);
+  const money = Number($("fuelMoney").value);
+  const mile = Number($("fuelMile").value);
+  if (!date || !(price > 0) || !(money > 0) || !(mile > 0)) return alert("请填全加油信息（油价、金额、里程均需大于 0）");
   const L = (money / price).toFixed(2);
   const list = getFuel();
-  list.push({id:Date.now(), date, price, money, fuelL:L, mile});
-  list.sort((a,b)=>a.mile - b.mile);
+  list.push({ id: Date.now(), date, price, money, fuelL: L, mile });
+  list.sort((a, b) => Number(a.mile) - Number(b.mile));
   saveFuel(list);
-  alert(`保存成功，本次加油${L}L`);
-  ["fuelPrice","fuelMoney","fuelMile"].forEach(id=>$(id).value="");
-  calcFuelAvg(); calcTotal(currentFilter); renderAllRecords();
+  alert(`保存成功，本次加油 ${L} L`);
+  ["fuelPrice", "fuelMoney", "fuelMile"].forEach(id => $(id).value = "");
+  refreshAll();
 }
+
 // 漏记补录
 function addMissFuelRecord() {
-  const list = getFuel();
-  if(list.length < 2) return alert("至少2条加油记录才能补录漏记");
+  const list = getFuel().slice().sort((a, b) => Number(a.mile) - Number(b.mile));
+  if (list.length < 2) return alert("至少 2 条加油记录才能补录漏记");
   const inputDate = $("fuelDate").value;
-  if(!inputDate) return alert("请先选择漏记日期");
-  list.sort((a,b)=>a.mile - b.mile);
-  let sumPrice=0,sumMoney=0,sumL=0,sumDrive=0;
-  for(let i=1;i<list.length;i++){
-    sumPrice += Number(list[i].price);
-    sumMoney += Number(list[i].money);
-    sumL += Number(list[i].fuelL);
-    sumDrive += list[i].mile - list[i-1].mile;
+  if (!inputDate) return alert("请先选择漏记日期");
+  let sumPrice = 0, sumMoney = 0, sumL = 0, sumDrive = 0;
+  for (let i = 1; i < list.length; i++) {
+    sumPrice += Number(list[i].price) || 0;
+    sumMoney += Number(list[i].money) || 0;
+    sumL += fuelLiters(list[i]);
+    sumDrive += Number(list[i].mile) - Number(list[i - 1].mile);
   }
   const cnt = list.length - 1;
-  const avgPrice = (sumPrice / cnt).toFixed(2), avgMoney = (sumMoney / cnt).toFixed(2), avgL = (sumL / cnt).toFixed(2), avgDrive = Math.round(sumDrive / cnt);
-  const newMile = list.at(-1).mile + avgDrive;
-  list.push({id:Date.now(), date:inputDate, price:Number(avgPrice), money:Number(avgMoney), fuelL:avgL, mile:newMile});
-  list.sort((a,b)=>a.mile - b.mile);
+  const avgPrice = sumPrice / cnt;
+  const avgMoney = sumMoney / cnt;
+  const avgL = sumL / cnt;
+  const avgDrive = Math.max(1, Math.round(sumDrive / cnt));
+  const newMile = Number(list[list.length - 1].mile) + avgDrive;
+  list.push({
+    id: Date.now(),
+    date: inputDate,
+    price: Number(avgPrice.toFixed(2)),
+    money: Number(avgMoney.toFixed(2)),
+    fuelL: avgL.toFixed(2),
+    mile: newMile
+  });
+  list.sort((a, b) => Number(a.mile) - Number(b.mile));
   saveFuel(list);
-  alert(`漏记保存\n油价${avgPrice}元/L 金额${avgMoney}元 ${avgL}L 里程${newMile}km`);
-  calcFuelAvg(); calcTotal(currentFilter); renderAllRecords();
+  alert(`漏记保存\n油价 ${avgPrice.toFixed(2)} 元/L，金额 ${avgMoney.toFixed(2)} 元，${avgL.toFixed(2)} L，里程 ${newMile} km`);
+  refreshAll();
 }
+
 const delFuel = id => {
-  saveFuel(getFuel().filter(i=>i.id!==id));
-  calcFuelAvg(); calcTotal(currentFilter); renderAllRecords();
+  if (!confirm("确定删除这条加油记录吗？")) return;
+  saveFuel(getFuel().filter(i => i.id !== id));
+  refreshAll();
 };
-// 首页油耗统计
+
+// ============ 首页油耗统计（优化版：满箱法 + 异常保护）============
 function calcFuelAvg() {
-  const list = getFuel().sort((a,b)=>a.mile - b.mile);
+  const list = getFuel()
+    .filter(i => i && i.date && Number(i.mile) > 0)
+    .sort((a, b) => Number(a.mile) - Number(b.mile));
+
   const elKm = $("totalDriveKm"), elAvg = $("avgFuel100"), elGap = $("gapDayNum"), elPer = $("perKmCost");
-  if(list.length < 2) {
+  const showEmpty = () => {
     elKm.innerText = elAvg.innerText = elGap.innerText = elPer.innerText = "暂无数据";
-    return;
+  };
+  if (list.length < 2) return showEmpty();
+
+  const first = list[0];
+  const prev = list[list.length - 2];
+  const curr = list[list.length - 1];
+
+  // 总行驶里程 = 最新里程 - 最早里程（全量数据）
+  const totalDrive = Number(curr.mile) - Number(first.mile);
+  elKm.innerText = totalDrive > 0 ? totalDrive + " km" : "暂无数据";
+
+  // 本次区间：上次加油 → 本次加油
+  const driveThis = Number(curr.mile) - Number(prev.mile);
+  const litersThis = fuelLiters(curr);
+  const moneyThis = Number(curr.money) || 0;
+
+  if (driveThis > 0 && litersThis > 0) {
+    elAvg.innerText = (litersThis / driveThis * 100).toFixed(2) + " L/100km";
+  } else {
+    elAvg.innerText = "暂无数据";
   }
-  const prev = list.at(-2), curr = list.at(-1);
-  const totalDrive = curr.mile - list[0].mile;
-  const driveThis = curr.mile - prev.mile;
-  elKm.innerText = totalDrive + " km";
-  elAvg.innerText = (Number(curr.fuelL) / driveThis * 100).toFixed(2) + " L";
-  elPer.innerText = (Number(curr.money) / driveThis).toFixed(3) + " 元";
-  elGap.innerText = dayDiff(curr.date,prev.date) + " 天";
+
+  if (driveThis > 0 && moneyThis > 0) {
+    elPer.innerText = (moneyThis / driveThis).toFixed(3) + " 元/km";
+  } else {
+    elPer.innerText = "暂无数据";
+  }
+
+  // 间隔天数：修正原来的正负号问题
+  const gap = Math.abs(dayDiff(prev.date, curr.date));
+  elGap.innerText = isFinite(gap) ? gap + " 天" : "暂无数据";
 }
-// 保险保养
-const getInsure = () => lsGet(KEY_INSURE)[0] || {insure:"",maintain:""};
+
+// ============ 保险保养 ============
+const getInsure = () => lsGet(KEY_INSURE)[0] || { insure: "", maintain: "" };
+
 function loadInsureData() {
   const d = getInsure();
-  $("insureDate").value = d.insure; $("maintainDate").value = d.maintain;
+  $("insureDate").value = d.insure || "";
+  $("maintainDate").value = d.maintain || "";
 }
+
 const saveInsure = () => {
-  lsSet(KEY_INSURE, [{insure:$("insureDate").value, maintain:$("maintainDate").value}]);
-  alert("保存成功"); renderRemind();
+  lsSet(KEY_INSURE, [{ insure: $("insureDate").value, maintain: $("maintainDate").value }]);
+  alert("保存成功");
+  renderRemind();
 };
+
 // 到期提醒渲染
 function renderRemind() {
   const data = getInsure(), wrap = $("remindBox");
-  if(!data.insure && !data.maintain) return wrap.innerHTML = "<div class='text-gray-400 text-center py-4'>未设置保险、保养到期日期</div>";
-  const today = new Date(); today.setHours(0,0,0,0);
+  if (!data.insure && !data.maintain) {
+    wrap.innerHTML = "<div class='text-gray-400 text-center py-4'>未设置保险、保养到期日期</div>";
+    return;
+  }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   let html = `<h3 class="font-medium mb-3 flex items-center gap-2"><i class="fa fa-bell text-primary"></i>到期提醒</h3>`;
   const renderTip = dateStr => {
     const d = new Date(dateStr);
-    const diff = Math.ceil((d - today) / (1000*3600*24));
-    if(diff < 0) return `<span class="text-warn">已过期${Math.abs(diff)}天</span>`;
-    if(diff <=30) return `<span class="text-orange-500">剩余${diff}天到期</span>`;
-    return `<span class="text-green-500">剩余${diff}天</span>`;
+    const diff = Math.ceil((d - today) / 86400000);
+    if (diff < 0) return `<span class="text-warn">已过期 ${Math.abs(diff)} 天</span>`;
+    if (diff <= 30) return `<span class="text-orange-500">剩余 ${diff} 天到期</span>`;
+    return `<span class="text-green-500">剩余 ${diff} 天</span>`;
   };
-  if(data.insure) html += `<p class="mb-2 text-gray-300">保险到期日：${data.insure} — ${renderTip(data.insure)}</p>`;
-  if(data.maintain) html += `<p class="text-gray-300">保养到期日：${data.maintain} — ${renderTip(data.maintain)}</p>`;
+  if (data.insure) html += `<p class="mb-2 text-gray-300">保险到期日：${data.insure} — ${renderTip(data.insure)}</p>`;
+  if (data.maintain) html += `<p class="text-gray-300">保养到期日：${data.maintain} — ${renderTip(data.maintain)}</p>`;
   wrap.innerHTML = html;
 }
-// 消费记录
+
+// ============ 消费记录 ============
 const getCost = () => lsGet(KEY_COST);
 const saveCost = arr => lsSet(KEY_COST, arr);
+
 function addCostRecord() {
-  const date = $("costDate").value, money = Number($("costMoney").value), remark = $("costRemark").value.trim();
-  if(!date || isNaN(money) || !remark) return alert("请填全消费信息");
+  const date = $("costDate").value;
+  const money = Number($("costMoney").value);
+  const remark = $("costRemark").value.trim();
+  if (!date || !(money > 0) || !remark) return alert("请填全消费信息");
   const list = getCost();
-  list.push({id:Date.now(), date, money, remark});
+  list.push({ id: Date.now(), date, money, remark });
   saveCost(list);
   alert("消费记录保存成功");
-  ["costMoney","costRemark"].forEach(id=>$(id).value="");
-  calcTotal(currentFilter); renderAllRecords();
+  ["costMoney", "costRemark"].forEach(id => $(id).value = "");
+  calcTotal(currentFilter);
+  renderAllRecords();
 }
+
 const delCost = id => {
-  saveCost(getCost().filter(i=>i.id!==id));
-  calcTotal(currentFilter); renderAllRecords();
+  if (!confirm("确定删除这条消费记录吗？")) return;
+  saveCost(getCost().filter(i => i.id !== id));
+  calcTotal(currentFilter);
+  renderAllRecords();
 };
-// ===== 数据备份 / 恢复 =====
+
+// ============ 数据备份 / 恢复（手动）============
 function exportAllData() {
   const payload = {
     app: "car-fuel-cost",
@@ -324,7 +421,7 @@ function exportAllData() {
     cost: getCost(),
     insure: lsGet(KEY_INSURE)
   };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: "application/json;charset=utf-8"});
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
@@ -333,7 +430,7 @@ function exportAllData() {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
   $("settingsTip").innerText = `已导出：加油 ${payload.fuel.length} 条，消费 ${payload.cost.length} 条`;
 }
 
@@ -364,12 +461,8 @@ function importAllData(ev) {
       saveCost(cost);
       lsSet(KEY_INSURE, insure);
 
-      // 刷新全部界面
-      loadInsureData();
-      calcFuelAvg();
-      calcTotal("all");
+      refreshAll();
       renderAllRecords();
-      renderRemind();
       $("settingsTip").innerText = `导入成功：加油 ${fuel.length} 条，消费 ${cost.length} 条`;
       alert("导入成功，数据已恢复");
     } catch (err) {
@@ -380,62 +473,269 @@ function importAllData(ev) {
   };
   reader.readAsText(file, "utf-8");
 }
-// 周期统计
+
+// ============ 隐藏功能：连点 3 次标题，从仓库目录追加备份 ============
+let titleClickCount = 0;
+let titleClickTimer = null;
+
+function bindSecretBackupTitle() {
+  const el = $("secretBackupTitle");
+  if (!el) return;
+  el.style.cursor = "pointer";
+  el.addEventListener("click", () => {
+    titleClickCount++;
+    clearTimeout(titleClickTimer);
+    titleClickTimer = setTimeout(() => { titleClickCount = 0; }, 1500);
+    if (titleClickCount >= 3) {
+      titleClickCount = 0;
+      clearTimeout(titleClickTimer);
+      loadRepoBackup();
+    }
+  });
+}
+
+function nextUniqueId(used) {
+  let id;
+  do { id = Date.now() + Math.floor(Math.random() * 100000); } while (used.has(id));
+  used.add(id);
+  return id;
+}
+
+const fuelKey = r => `${String(r.date || "").slice(0, 10)}|${Number(r.mile) || 0}|${(Number(r.money) || 0).toFixed(2)}`;
+const costKey = r => `${String(r.date || "").slice(0, 10)}|${(Number(r.money) || 0).toFixed(2)}|${String(r.remark || "").trim()}`;
+
+function normalizeFuelItem(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const date = String(raw.date || "").slice(0, 10);
+  const mile = Number(raw.mile);
+  const money = Number(raw.money);
+  const price = Number(raw.price);
+  if (!date || !isFinite(mile) || mile <= 0) return null;
+  let fuelL = Number(raw.fuelL);
+  if (!isFinite(fuelL) || fuelL <= 0) {
+    fuelL = (isFinite(price) && price > 0 && isFinite(money) && money > 0) ? money / price : 0;
+  }
+  return {
+    id: 0,
+    date,
+    price: isFinite(price) ? price : 0,
+    money: isFinite(money) ? money : 0,
+    fuelL: fuelL.toFixed(2),
+    mile
+  };
+}
+
+function normalizeCostItem(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const date = String(raw.date || "").slice(0, 10);
+  const money = Number(raw.money);
+  const remark = String(raw.remark || raw.type || "").trim();
+  if (!date || !isFinite(money) || money <= 0 || !remark) return null;
+  return { id: 0, date, money, remark };
+}
+
+function mergeFuelLists(current, incoming) {
+  const usedIds = new Set(current.map(i => Number(i.id)));
+  const seen = new Set(current.map(fuelKey));
+  const out = current.slice();
+  let added = 0;
+  (incoming || []).forEach(raw => {
+    const item = normalizeFuelItem(raw);
+    if (!item) return;
+    const k = fuelKey(item);
+    if (seen.has(k)) return;
+    seen.add(k);
+    item.id = nextUniqueId(usedIds);
+    out.push(item);
+    added++;
+  });
+  out.sort((a, b) => Number(a.mile) - Number(b.mile));
+  return { list: out, added };
+}
+
+function mergeCostLists(current, incoming) {
+  const usedIds = new Set(current.map(i => Number(i.id)));
+  const seen = new Set(current.map(costKey));
+  const out = current.slice();
+  let added = 0;
+  (incoming || []).forEach(raw => {
+    const item = normalizeCostItem(raw);
+    if (!item) return;
+    const k = costKey(item);
+    if (seen.has(k)) return;
+    seen.add(k);
+    item.id = nextUniqueId(usedIds);
+    out.push(item);
+    added++;
+  });
+  out.sort((a, b) => new Date(a.date) - new Date(b.date));
+  return { list: out, added };
+}
+
+async function loadRepoBackup() {
+  if (backupLoading) return;
+  backupLoading = true;
+
+  const tipEl = $("settingsTip");
+  const setTip = t => { if (tipEl) tipEl.innerText = t; };
+  setTip("正在从站点目录加载备份文件…");
+
+  const urls = [
+    "./" + BACKUP_FILE_NAME,
+    BACKUP_FILE_NAME,
+    "./" + encodeURIComponent(BACKUP_FILE_NAME)
+  ];
+
+  let data = null, errMsg = "";
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const txt = await res.text();
+      data = JSON.parse(txt);
+      break;
+    } catch (e) {
+      errMsg = e.message;
+    }
+  }
+
+  if (!data) {
+    backupLoading = false;
+    setTip("加载失败：" + (errMsg || "文件不存在或格式错误"));
+    alert("加载备份文件失败：\n" + (errMsg || "未知错误") +
+      "\n\n请确认站点目录下存在文件：\n" + BACKUP_FILE_NAME);
+    return;
+  }
+
+  // 兼容多种结构
+  const incomingFuel = Array.isArray(data.fuel) ? data.fuel
+    : Array.isArray(data.fuelList) ? data.fuelList
+    : Array.isArray(data) ? data : [];
+  const incomingCost = Array.isArray(data.cost) ? data.cost
+    : Array.isArray(data.costList) ? data.costList : [];
+  let incomingInsure = data.insure;
+  if (incomingInsure && !Array.isArray(incomingInsure)) incomingInsure = [incomingInsure];
+  if (!Array.isArray(incomingInsure)) incomingInsure = [];
+
+  const fuelRes = mergeFuelLists(getFuel(), incomingFuel);
+  const costRes = mergeCostLists(getCost(), incomingCost);
+
+  // 保险保养设置：当前为空时才用备份补全（不覆盖用户设置）
+  let insureUpdated = false;
+  const curInsure = lsGet(KEY_INSURE);
+  const curHas = curInsure.length && (curInsure[0].insure || curInsure[0].maintain);
+  if (!curHas && incomingInsure.length) {
+    lsSet(KEY_INSURE, incomingInsure.slice(0, 1));
+    insureUpdated = true;
+  }
+
+  saveFuel(fuelRes.list);
+  saveCost(costRes.list);
+
+  refreshAll();
+  renderAllRecords();
+
+  const msg = `已从 ${BACKUP_FILE_NAME} 追加：加油 ${fuelRes.added} 条、消费 ${costRes.added} 条` +
+    (insureUpdated ? "、保险保养设置已补全" : "") +
+    `。\n当前共：加油 ${fuelRes.list.length} 条、消费 ${costRes.list.length} 条。`;
+  setTip(msg.replace(/\n/g, " "));
+  alert(msg);
+  backupLoading = false;
+}
+
+// ============ 周期统计（优化版：满箱法，剔除起始油量）============
 function getStartDate(type) {
   const now = new Date();
   let start = null, tip = "全部时间";
-  if(type === "3month") { start = new Date(); start.setMonth(now.getMonth()-3); tip="近3个月"; }
-  if(type === "1year") { start = new Date(); start.setFullYear(now.getFullYear()-1); tip="近1年"; }
-  return {start, tip};
+  if (type === "3month") { start = new Date(); start.setMonth(now.getMonth() - 3); tip = "近3个月"; }
+  if (type === "1year") { start = new Date(); start.setFullYear(now.getFullYear() - 1); tip = "近1年"; }
+  return { start, tip };
 }
+
 function calcTotal(type) {
   currentFilter = type;
-  const fuelAll = getFuel(), costAll = getCost();
-  const {start, tip} = getStartDate(type);
+  const { start, tip } = getStartDate(type);
   $("filterTip").innerText = tip;
-  let fuelFilter = start ? fuelAll.filter(i=>new Date(i.date)>=start) : fuelAll;
-  fuelFilter.sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  // ---- 加油数据（按里程排序，保证区间连续）----
+  const fuelAll = getFuel().filter(i => i && i.date && Number(i.mile) > 0);
+  const fuelFilter = (start ? fuelAll.filter(i => new Date(i.date) >= start) : fuelAll.slice())
+    .sort((a, b) => Number(a.mile) - Number(b.mile));
+
   const fuelCount = fuelFilter.length;
-  let fuelSumMoney=0, fuelSumL=0;
-  fuelFilter.forEach(i=>{fuelSumMoney += Number(i.money); fuelSumL += Number(i.fuelL);});
-  let driveKm = 0;
-  if(fuelFilter.length >=2) driveKm = fuelFilter.at(-1).mile - fuelFilter[0].mile;
-  const avgFuel100 = driveKm ? (fuelSumL / driveKm * 100) : 0;
-  const costPerKm = driveKm ? fuelSumMoney / driveKm : 0;
-  // 平均加油周期
-  let avgGapDay = 0;
-  if(fuelFilter.length >=2) {
-    let totalGap = 0;
-    for(let i=1;i<fuelFilter.length;i++) totalGap += dayDiff(fuelFilter[i-1].date, fuelFilter[i].date);
-    avgGapDay = (totalGap / (fuelFilter.length -1)).toFixed(1);
+  let fuelSumMoney = 0, fuelSumL = 0;
+  fuelFilter.forEach(i => {
+    fuelSumMoney += Number(i.money) || 0;
+    fuelSumL += fuelLiters(i);
+  });
+
+  // 满箱法：区间内「第一次加油」的油量属于区间开始前的存量，不计入本区间消耗
+  let driveKm = 0, avgFuel100 = 0, costPerKm = 0;
+  if (fuelFilter.length >= 2) {
+    const first = fuelFilter[0];
+    const last = fuelFilter[fuelFilter.length - 1];
+    driveKm = Number(last.mile) - Number(first.mile);
+    if (driveKm > 0) {
+      const usedL = Math.max(0, fuelSumL - fuelLiters(first));
+      const usedMoney = Math.max(0, fuelSumMoney - (Number(first.money) || 0));
+      avgFuel100 = usedL / driveKm * 100;
+      costPerKm = usedMoney / driveKm;
+    }
   }
-  // 消费统计
-  let costFilter = start ? costAll.filter(i=>new Date(i.date)>=start) : costAll;
-  let costSumMoney = 0;
-  costFilter.forEach(i=>costSumMoney += Number(i.money));
-  const allSum = fuelSumMoney + costSumMoney;
-  // 赋值页面
+
+  // ---- 平均加油周期（按日期排序，取绝对天数）----
+  let avgGapDay = 0;
+  if (fuelFilter.length >= 2) {
+    const byDate = fuelFilter.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    let totalGap = 0;
+    for (let i = 1; i < byDate.length; i++) {
+      totalGap += Math.abs(dayDiff(byDate[i - 1].date, byDate[i].date));
+    }
+    avgGapDay = totalGap / (byDate.length - 1);
+  }
+
+  // ---- 其它消费 ----
+  const costAll = getCost().filter(i => i && i.date);
+  const costFilter = start ? costAll.filter(i => new Date(i.date) >= start) : costAll;
+  const costSumMoney = costFilter.reduce((s, i) => s + (Number(i.money) || 0), 0);
+
+  // ---- 赋值页面 ----
   $("statFuelCount").innerText = fuelCount + " 次";
   $("statFuelMoney").innerText = fuelSumMoney.toFixed(2) + " 元";
   $("statCostMoney").innerText = costSumMoney.toFixed(2) + " 元";
-  $("statAllTotal").innerText = allSum.toFixed(2) + " 元";
-  $("statDriveKm").innerText = driveKm + " km";
+  $("statAllTotal").innerText = (fuelSumMoney + costSumMoney).toFixed(2) + " 元";
+  $("statDriveKm").innerText = driveKm > 0 ? driveKm + " km" : "0 km";
   $("statAvgFuel").innerText = avgFuel100.toFixed(2) + " L";
   $("statCostPerKm").innerText = costPerKm.toFixed(3) + " 元";
-  $("statAvgGapDay").innerText = fuelFilter.length>=2 ? avgGapDay + " 天" : "无数据";
+  $("statAvgGapDay").innerText = fuelFilter.length >= 2 ? avgGapDay.toFixed(1) + " 天" : "无数据";
+
   renderAllRecords();
 }
-// 渲染列表
+
+// ============ 列表渲染 ============
 function renderAllRecords() {
-  const {start} = getStartDate(currentFilter);
-  let fuelArr = start ? getFuel().filter(i=>new Date(i.date)>=start) : getFuel();
+  const { start } = getStartDate(currentFilter);
+
+  const fuelArr = (start ? getFuel().filter(i => new Date(i.date) >= start) : getFuel())
+    .slice().sort((a, b) => new Date(b.date) - new Date(a.date) || Number(b.mile) - Number(a.mile));
   let fuelHtml = fuelArr.length ? "" : "<div class='text-gray-400'>当前周期无加油数据</div>";
-  fuelArr.forEach(item=>fuelHtml += `<div class="border border-gray-700 p-2 rounded mb-2 text-sm flex justify-between items-center"><span class="text-gray-300">${item.date} ${item.price}元/L ${item.money}元 ${item.fuelL}L 里程${item.mile}</span><button onclick="delFuel(${item.id})" class="text-warn text-sm"><i class="fa fa-times"></i></button></div>`);
+  fuelArr.forEach(item => {
+    fuelHtml += `<div class="border border-gray-700 p-2 rounded mb-2 text-sm flex justify-between items-center gap-2">
+      <span class="text-gray-300">${item.date} · ${item.price} 元/L · ${item.money} 元 · ${Number(item.fuelL).toFixed(2)} L · 里程 ${item.mile}</span>
+      <button onclick="delFuel(${item.id})" class="text-warn text-sm shrink-0"><i class="fa fa-times"></i></button>
+    </div>`;
+  });
   $("fuelListWrap").innerHTML = fuelHtml;
 
-  let costArr = start ? getCost().filter(i=>new Date(i.date)>=start) : getCost();
+  const costArr = (start ? getCost().filter(i => new Date(i.date) >= start) : getCost())
+    .slice().sort((a, b) => new Date(b.date) - new Date(a.date));
   let costHtml = costArr.length ? "" : "<div class='text-gray-400'>当前周期无消费数据</div>";
-  costArr.forEach(item=>costHtml += `<div class="border border-gray-700 p-2 rounded mb-2 text-sm flex justify-between items-center"><span class="text-gray-300">${item.date} ${item.remark} ${item.money}元</span><button onclick="delCost(${item.id})" class="text-warn text-sm"><i class="fa fa-times"></i></button></div>`);
+  costArr.forEach(item => {
+    costHtml += `<div class="border border-gray-700 p-2 rounded mb-2 text-sm flex justify-between items-center gap-2">
+      <span class="text-gray-300">${item.date} · ${item.remark} · ${item.money} 元</span>
+      <button onclick="delCost(${item.id})" class="text-warn text-sm shrink-0"><i class="fa fa-times"></i></button>
+    </div>`;
+  });
   $("costListWrap").innerHTML = costHtml;
 }
 </script>
