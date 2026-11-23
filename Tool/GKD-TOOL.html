@@ -3,26 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script
 <script src="json5.js"></script>
-<script>
-(function () {
-  'use strict';
-
-  /* ===== 依赖检查：json5.js 必须暴露全局 JSON5 ===== */
-  if (typeof JSON5 === 'undefined' || typeof JSON5.parse !== 'function' || typeof JSON5.stringify !== 'function') {
-    var s = document.getElementById('status');
-    if (s) {
-      s.textContent = '❌ 未加载到 json5.js（需与本页面同目录，且暴露全局 JSON5）';
-      s.className = 'status err';
-      s.title = '请确认仓库中 json5.js 为 UMD 构建（dist/index.js），而不是 CommonJS/ESM 源码。';
-    }
-    var ed = document.getElementById('editor');
-    if (ed) { ed.readOnly = true; ed.placeholder = 'json5.js 未正确加载，功能不可用。'; }
-    return;
-  }
-
 <title>GKD JSON5 编辑器</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Microsoft Yahei,sans-serif}
@@ -44,7 +25,7 @@ body{background:#121212;color:#e5e5e5;padding:15px}
 textarea{width:100%;height:72vh;padding:12px;border:1px solid #333;border-radius:4px;font-family:Consolas,monospace;font-size:13px;resize:none;line-height:1.5;background:#171717;color:#e5e5e5}
 #parseTip{margin-top:8px;font-size:12px;white-space:pre-wrap}
 
-.mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0.8);display:none;align-items:center;justify-content:center;z-index:999}
+.mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:999}
 .modal{background:#1e1e1e;border:1px solid #333;border-radius:6px;padding:18px;width:620px}
 .modal-title{font-size:15px;font-weight:500;margin-bottom:15px}
 .modal-footer{text-align:right;display:flex;gap:6px;justify-content:flex-end}
@@ -137,6 +118,24 @@ textarea{width:100%;height:72vh;padding:12px;border:1px solid #333;border-radius
 </div>
 
 <script>
+/* ===== 依赖检查：json5.js 需与本页同目录并提供全局 JSON5 ===== */
+(function checkJson5Lib(){
+    if (typeof JSON5 !== 'undefined' && typeof JSON5.parse === 'function' && typeof JSON5.stringify === 'function') return;
+    var tip = document.getElementById('parseTip');
+    if (tip) {
+        tip.style.color = '#f87171';
+        tip.innerText = '❌ 未加载到 json5.js\n请确认它位于与本页面相同的目录，并且是 UMD 构建（会暴露全局 JSON5），而不是 CommonJS / ESM 源码。';
+    }
+    var ta = document.getElementById('json5Code');
+    if (ta) { ta.readOnly = true; ta.placeholder = 'json5.js 未正确加载，功能不可用。'; }
+    var btns = document.querySelectorAll('.toolbar .btn');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].disabled = true;
+        btns[i].style.opacity = '.5';
+        btns[i].style.cursor = 'not-allowed';
+    }
+})();
+
 // 工具函数
 function safeArr(v){return Array.isArray(v)?v:[]}
 function hasValidKey(key){return key!==undefined&&key!==null&&key!==''}
