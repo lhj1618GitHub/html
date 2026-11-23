@@ -19,6 +19,14 @@ body{background:#121212;color:#e5e5e5;padding:15px}
 .btn-default{background:#333;color:#eee}
 .btn-sm{padding:2px 5px;font-size:11px}
 
+/* ===== 导入下拉菜单 ===== */
+.import-wrap{position:relative;display:inline-block}
+.import-menu{display:none;position:absolute;top:100%;left:0;margin-top:5px;background:#252525;border:1px solid #3d3d3d;border-radius:5px;min-width:130px;z-index:1200;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.6)}
+.import-menu.show{display:block}
+.import-menu-item{padding:8px 12px;font-size:12px;cursor:pointer;white-space:nowrap;color:#e5e5e5}
+.import-menu-item:hover{background:#333}
+.import-menu-item+.import-menu-item{border-top:1px solid #333}
+
 .code-panel{background:#1e1e1e;border-radius:6px;padding:15px;border:1px solid #333}
 .panel-title{font-size:16px;font-weight:500;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center}
 .cursor-pos{font-size:12px;color:#999;font-weight:normal}
@@ -29,6 +37,11 @@ textarea{width:100%;height:72vh;padding:12px;border:1px solid #333;border-radius
 .modal{background:#1e1e1e;border:1px solid #333;border-radius:6px;padding:18px;width:620px}
 .modal-title{font-size:15px;font-weight:500;margin-bottom:15px}
 .modal-footer{text-align:right;display:flex;gap:6px;justify-content:flex-end}
+
+/* ===== 链接导入面板 ===== */
+.link-input{width:100%;padding:8px 10px;background:#171717;border:1px solid #333;border-radius:4px;color:#e5e5e5;font-size:13px;font-family:Consolas,monospace;outline:none}
+.link-input:focus{border-color:#2563eb}
+#linkTip{margin-top:8px;font-size:12px;color:#999;white-space:pre-wrap;min-height:16px;line-height:1.6}
 
 .visual-mask{padding:15px}
 .visual-box{width:100%;height:100%;background:#1e1e1e;border:1px solid #333;border-radius:6px;padding:15px;overflow:auto}
@@ -57,7 +70,13 @@ textarea{width:100%;height:72vh;padding:12px;border:1px solid #333;border-radius
 <body>
 <div class="main-container">
     <div class="toolbar">
-        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">导入</button>
+        <div class="import-wrap">
+            <button class="btn btn-primary" onclick="toggleImportMenu(event)">导入 ▾</button>
+            <div class="import-menu" id="importMenu">
+                <div class="import-menu-item" onclick="chooseImportLocal(event)">📁 本地文件</div>
+                <div class="import-menu-item" onclick="chooseImportLink(event)">🔗 网络链接</div>
+            </div>
+        </div>
         <button class="btn btn-danger" onclick="downloadJson5()">导出</button>
         <button class="btn btn-default" onclick="clearContent()">清空</button>
         <button class="btn btn-success" onclick="parseJson5()">解析</button>
@@ -73,6 +92,19 @@ textarea{width:100%;height:72vh;padding:12px;border:1px solid #333;border-radius
         </div>
         <textarea id="json5Code" placeholder="粘贴GKD订阅json5内容..."></textarea>
         <div id="parseTip"></div>
+    </div>
+</div>
+
+<!-- ===== 链接导入面板（可关闭） ===== -->
+<div class="mask" id="linkMask">
+    <div class="modal" style="width:480px">
+        <div class="modal-title">🔗 从网络链接导入</div>
+        <input type="text" class="link-input" id="linkInput" placeholder="https://example.com/gkd.json5">
+        <div id="linkTip"></div>
+        <div class="modal-footer" style="margin-top:14px">
+            <button class="btn btn-default" onclick="closeLinkMask()">取消</button>
+            <button class="btn btn-success" id="linkOkBtn" onclick="loadFromLink()">确定</button>
+        </div>
     </div>
 </div>
 
@@ -162,6 +194,18 @@ document.addEventListener('DOMContentLoaded',function(){
     codeArea.addEventListener('keyup', updateCursor);
     appSearchEl.addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
 
+    // 链接面板：回车确定 / Esc 关闭
+    var linkInput = document.getElementById('linkInput');
+    if(linkInput){
+        linkInput.addEventListener('keydown',function(e){
+            if(e.key==='Enter'){e.preventDefault();loadFromLink();}
+            else if(e.key==='Escape'){e.preventDefault();closeLinkMask();}
+        });
+    }
+
+    // 点击空白处收起导入菜单
+    document.addEventListener('click',function(){ hideImportMenu(); });
+
     updateCursor();
 });
 
@@ -192,6 +236,98 @@ function toggleCodeView(){
     updateCursor();
 }
 
+/* ===================== 导入：本地 / 链接 ===================== */
+
+// 展开或收起导入菜单
+function toggleImportMenu(e){
+    if(e) e.stopPropagation();
+    var m = document.getElementById('importMenu');
+    if(m) m.classList.toggle('show');
+}
+function hideImportMenu(){
+    var m = document.getElementById('importMenu');
+    if(m) m.classList.remove('show');
+}
+
+// 选择：本地文件
+function chooseImportLocal(e){
+    if(e) e.stopPropagation();
+    hideImportMenu();
+    document.getElementById('fileInput').click();
+}
+
+// 选择：网络链接
+function chooseImportLink(e){
+    if(e) e.stopPropagation();
+    hideImportMenu();
+    if(typeof JSON5 === 'undefined'){ alert('json5.js 未正确加载，无法解析内容'); return; }
+    var tip = document.getElementById('linkTip');
+    tip.style.color = '#999';
+    tip.innerText = '';
+    document.getElementById('linkMask').style.display = 'flex';
+    setTimeout(function(){
+        var inp = document.getElementById('linkInput');
+        if(inp){ inp.focus(); inp.select(); }
+    }, 50);
+}
+
+// 关闭链接面板
+function closeLinkMask(){
+    document.getElementById('linkMask').style.display = 'none';
+}
+
+// 加载链接内容
+async function loadFromLink(){
+    var input = document.getElementById('linkInput');
+    var tip   = document.getElementById('linkTip');
+    var btn   = document.getElementById('linkOkBtn');
+    var url   = (input.value || '').trim();
+
+    if(!url){
+        tip.style.color = '#f87171';
+        tip.innerText = '请输入文件链接';
+        return;
+    }
+    // 补全协议
+    if(!/^(https?:)?\/\//i.test(url) && !url.startsWith('/') && !url.startsWith('./') && !url.startsWith('../')){
+        url = 'https://' + url;
+        input.value = url;
+    }
+
+    btn.disabled = true;
+    btn.style.opacity = '.6';
+    btn.innerText = '加载中…';
+    tip.style.color = '#999';
+    tip.innerText = '正在请求：' + url;
+
+    try{
+        var res = await fetch(url, { cache:'no-store' });
+        if(!res.ok) throw new Error('HTTP ' + res.status + ' ' + (res.statusText || ''));
+        var text = await res.text();
+        if(!text.trim()) throw new Error('返回内容为空');
+
+        // 写入编辑器并自动解析
+        codeArea.value = text;
+        var ok = parseJson5();
+        updateCursor();
+
+        if(!ok){
+            tip.style.color = '#f87171';
+            tip.innerText = '文件已获取，但 JSON5 解析失败，请检查文件内容。';
+            return;
+        }
+        closeLinkMask();
+    }catch(err){
+        tip.style.color = '#f87171';
+        tip.innerText = '加载失败：' + err.message +
+            '\n可能原因：链接不可访问、服务器未允许跨域（CORS）、网络错误；\n若在 file:// 下打开本页，请改用 http 服务访问。';
+    }finally{
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.innerText = '确定';
+    }
+}
+
 // 本地导入
 function importLocalFile(e){
     let f = e.target.files[0];
@@ -210,10 +346,10 @@ function importLocalFile(e){
 function showErr(m){parseTipEl.style.color='#f87171';parseTipEl.innerText=m}
 function showOk(m){parseTipEl.style.color='#4ade80';parseTipEl.innerText=m}
 
-// 解析核心
+// 解析核心（返回是否成功）
 function parseJson5(){
     let c = codeArea.value.trim();
-    if(!c){showErr('请输入JSON5内容');subscriptionData=null;return;}
+    if(!c){showErr('请输入JSON5内容');subscriptionData=null;return false;}
     try{
         subscriptionData = JSON5.parse(c);
         codeArea.value = JSON5.stringify(subscriptionData,null,2);
@@ -224,11 +360,14 @@ function parseJson5(){
         appSearchEl.value = '';
         showOk('解析成功');
         renderAllView();
+        updateCursor();
+        return true;
     }catch(err){
         showErr('解析失败：'+err.message);
         subscriptionData = null;
+        updateCursor();
+        return false;
     }
-    updateCursor();
 }
 
 // 搜索
@@ -288,9 +427,9 @@ function renderApps(){
         let id = (app.id||'').toLowerCase();
         return n.includes(lastSearchKey) || id.includes(lastSearchKey);
     });
-    if(!filterApps){wrap.innerHTML='<div class="app-item">无匹配应用</div>';return}
+    if(!filterApps.length){wrap.innerHTML='<div class="app-item">无匹配应用</div>';return}
     let html='';
-    filterApps.forEach((app,appIdx)=>{
+    filterApps.forEach((app)=>{
         let realIdx = apps.indexOf(app);
         let appOpen = expandedApps.has(realIdx);
         let groups = safeArr(app.groups);
