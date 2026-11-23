@@ -74,6 +74,9 @@
     .hint { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
     .hint code { overflow-wrap: anywhere; }
     .section-head .hint { margin: 6px 0 0; }
+    .label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .token-link { color: var(--muted); font-size: 13px; font-weight: 500; text-decoration: none; }
+    .token-link:hover { color: var(--accent); }
     input[type="text"], input[type="password"] {
       width: 100%;
       min-width: 0;
@@ -187,19 +190,19 @@
               <div class="section-head">
                 <div>
                   <h2>连接 GitHub</h2>
-                  <p class="hint">
-                    <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">创建细粒度令牌 ↗</a>
-                  </p>
                 </div>
                 <span class="step-no" aria-hidden="true">01</span>
               </div>
               <div class="field">
-                <label for="token">个人访问令牌</label>
+                <div class="label-row">
+                  <label for="token">个人访问令牌</label>
+                  <a class="token-link" href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">创建细粒度令牌 ↗</a>
+                </div>
                 <div class="token-row">
                   <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" required aria-describedby="token-hint">
                   <button id="toggle-token" class="secondary" type="button" aria-pressed="false">显示</button>
                 </div>
-                <div id="token-hint" class="hint">请使用具备仓库创建、Contents 读写和 Pages 读写权限的细粒度令牌。经典令牌需要 <code>repo</code> 权限范围。</div>
+                <div id="token-hint" class="hint">请使用具备仓库创建、Contents 读写和 Pages 读写权限的细粒度令牌，经典令牌需要 <code>repo</code> 权限范围，您的令牌仅在内存中使用，本页面绝不会保存它</div>
               </div>
             </div>
 
