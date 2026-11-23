@@ -3,7 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://unpkg.com/json5@2/dist/index.min.js"></script>
+
+<script
+<script src="json5.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ===== 依赖检查：json5.js 必须暴露全局 JSON5 ===== */
+  if (typeof JSON5 === 'undefined' || typeof JSON5.parse !== 'function' || typeof JSON5.stringify !== 'function') {
+    var s = document.getElementById('status');
+    if (s) {
+      s.textContent = '❌ 未加载到 json5.js（需与本页面同目录，且暴露全局 JSON5）';
+      s.className = 'status err';
+      s.title = '请确认仓库中 json5.js 为 UMD 构建（dist/index.js），而不是 CommonJS/ESM 源码。';
+    }
+    var ed = document.getElementById('editor');
+    if (ed) { ed.readOnly = true; ed.placeholder = 'json5.js 未正确加载，功能不可用。'; }
+    return;
+  }
+
 <title>GKD JSON5 编辑器</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Microsoft Yahei,sans-serif}
