@@ -126,7 +126,6 @@
     <main id="publish">
       <section class="hero" aria-labelledby="title">
         <p class="eyebrow">HTML → 在线链接</p>
-        <h1>拖入页面。<br>获得链接。</h1>
         <p class="lede">将任意独立的 HTML 文件发布到一个全新的公开 GitHub Pages 站点。无需构建步骤，无需控制台，无需等待室。</p>
       </section>
 
@@ -134,7 +133,7 @@
         <section class="card main-card" aria-label="发布表单">
           <form id="publish-form" novalidate>
             <div class="step">
-              <div class="section-head"><div><h2>连接 GitHub</h2><p class="hint">您的令牌仅在内存中使用，本页面绝不会保存它。</p></div><span class="step-no" aria-hidden="true">01</span></div>
+              <div class="section-head"><div><h2>连接 GitHub</h2><p class="hint">href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noreferrer">创建细粒度令牌 ↗，您的令牌仅在内存中使用，本页面绝不会保存它。</p></div><span class="step-no" aria-hidden="true">01</span></div>
               <div class="field">
                 <label for="token">个人访问令牌</label>
                 <div class="token-row"><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" required aria-describedby="token-hint"><button id="toggle-token" class="secondary" type="button" aria-pressed="false">显示</button></div>
@@ -165,8 +164,6 @@
 
         <aside>
           <section class="card side-card"><h3>工作原理</h3><ol><li>输入 GitHub 令牌。</li><li>选择一个 HTML 文件。</li><li>PageDrop 创建一个公开仓库，并将其上传为 <code>index.html</code>。</li><li>GitHub 构建 Pages，直链地址会显示在这里。</li></ol></section>
-          <section class="card side-card"><div class="security"><span class="security-badge" aria-hidden="true">⌁</span><div><h3>令牌保留在本地</h3><p>本工具没有后端服务器。令牌仅存在于发布期间的浏览器标签页中，不会写入仓库或 URL。</p></div></div><div class="callout">为了最大程度的安全，建议创建一个专用的细粒度令牌，并在发布后撤销它（如果您不打算重复使用本工具）。</div></section>
-          <p class="footer">以自包含 HTML 应用形式构建。<a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noreferrer">创建细粒度令牌 ↗</a></p>
         </aside>
       </div>
     </main>
