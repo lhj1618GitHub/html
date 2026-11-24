@@ -114,7 +114,7 @@ button{cursor:pointer;}
 .row{padding:10px 14px;border-top:1px solid var(--bd);transition:background .15s;}
 .row:hover{background:var(--surf2);}
 .row.is-new{box-shadow:inset 3px 0 0 var(--danger);}
-.ml{display:none;font-size:.68rem;color:var(--dim);flex:none;}
+.ml{display:none;font-size:.68rem;color:var(--dim);flex:none;white-space:nowrap;}
 .c-name{display:flex;align-items:center;min-width:0;}
 .repo{
   color:var(--text);font-weight:600;font-size:.92rem;text-decoration:none;
@@ -155,7 +155,7 @@ button{cursor:pointer;}
 .badge.latest{color:var(--ok);background:rgba(46,213,115,.12);border-color:rgba(46,213,115,.35);}
 .badge.error{color:var(--warn);background:rgba(245,184,61,.12);border-color:rgba(245,184,61,.35);}
 
-/* 可点击的「有新版本」徽章：点击即同步 */
+/* 可点击的「有新版本」徽章：点击即同步（带确认） */
 .badge.clickable{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
 .badge.clickable:hover{background:rgba(255,85,104,.25);border-color:var(--danger);}
 .badge.clickable:active{transform:scale(.96);}
@@ -295,7 +295,7 @@ body.modal-open{overflow:hidden;}
 <header class="hdr">
   <h1 id="title">GitHub 版本检测 &amp; 下载</h1>
   <p>追踪 Release 版本 · 一键对比与下载</p>
-  <p class="tips">💡 点击 <b>有新版本</b> 同步版本 · 点击 <b>最新版本号</b> 打开下载</p>
+  <p class="tips">💡 点击 <b>有新版本</b> 同步版本 · </p>
   <button class="icon-btn theme-btn" id="theme-btn" title="切换日夜模式" aria-label="切换日夜模式"></button>
 </header>
 
@@ -712,7 +712,7 @@ function rowHtml(it, i) {
     ? '点击下载（' + it.assets.length + ' 个文件）'
     : '点击检测版本后可下载';
 
-  /* 「有新版本」徽章可点击，点击即同步 */
+  /* 「有新版本」徽章可点击，点击弹确认框同步 */
   const isNew = it.status === '有新版本';
   const badgeAct = isNew ? ' data-act="sync" data-i="' + i + '"' : '';
   const badgeCls = isNew ? ' clickable' : '';
@@ -734,7 +734,7 @@ function rowHtml(it, i) {
       '</button>' +
     '</div>' +
     '<div class="c-latest">' +
-      '<span class="ml">最新</span>' +
+      '<span class="ml">下载最新</span>' +
       '<button type="button" class="vtag" data-act="download" data-i="' + i + '" title="' + esc(dlTip) + '">' +
         (it.latestVersion ? esc(it.latestVersion) : '—') +
       '</button>' +
@@ -888,6 +888,7 @@ function handleEdit(e) {
 }
 
 /* ==================== 列表操作 ==================== */
+/* 同步带确认：点击「有新版本」徽章 → 确认框 → 确认后才写入 */
 function syncVersion(i) {
   if (checking) return;
   const it = list[i];
@@ -895,11 +896,24 @@ function syncVersion(i) {
   if (!it.latestVersion) { toast('请先检测版本', 'error'); return; }
   if (it.localVersion === it.latestVersion) { toast('当前已是最新版本'); return; }
 
-  it.localVersion = it.latestVersion;
-  refreshStatus(it);
-  saveData();
-  render();
-  toast('已同步为最新版本', 'success');
+  const targetVer = it.latestVersion;
+  confirmDialog({
+    title: '同步本地版本',
+    message: '确定将「' + repoName(it.url) + '」的本地版本同步为 ' + targetVer + ' 吗？',
+    okText: '同步'
+  }).then(ok => {
+    if (!ok) return;
+    /* 校验：确认期间数据可能变化 */
+    if (!it.latestVersion || it.localVersion === it.latestVersion) {
+      toast('数据已变化，请重试', 'error');
+      return;
+    }
+    it.localVersion = it.latestVersion;
+    refreshStatus(it);
+    saveData();
+    render();
+    toast('已同步为最新版本', 'success');
+  });
 }
 
 function deleteItem(i) {
