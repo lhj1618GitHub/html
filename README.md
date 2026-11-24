@@ -15,6 +15,25 @@
 
 ---
 
+子页面内部的正确调用方式（相对路径）：
+
+```
+<!-- pages/about.html -->
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/js/library.js"></script>
+
+<!-- pages/blog/post.html -->
+<link rel="stylesheet" href="../../assets/css/style.css">
+<script src="../../assets/js/library.js"></script>
+
+<!-- index.html（根目录） -->
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/js/library.js"></script>
+
+```
+
+---
+
 - [将html/url打包成apk](https://github.com/lhj1618GitHub/html-apk)
 
 ---
