@@ -295,7 +295,7 @@ body.modal-open{overflow:hidden;}
 <header class="hdr">
   <h1 id="title">GitHub 版本检测 &amp; 下载</h1>
   <p>追踪 Release 版本 · 一键对比与下载</p>
-  <p class="tips">💡 点击 <b>仓库名</b> 打开仓库页面 / 点击 <b>有新版本</b> 同步版本号 </p>
+  <p class="tips">💡 点击 <b>仓库名</b> 新窗口打开 · 点击 <b>有新版本</b> 同步 · 点击 <b>版本号</b> 下载</p>
   <button class="icon-btn theme-btn" id="theme-btn" title="切换日夜模式" aria-label="切换日夜模式"></button>
 </header>
 
@@ -527,6 +527,15 @@ function copyText(text) {
   return Promise.resolve(fallbackCopy(text));
 }
 
+/* 在新窗口/标签页安全打开链接（兼容 app 内 webview） */
+function openInNewTab(url) {
+  if (!url) return;
+  const win = window.open(url, '_blank', 'noopener,noreferrer');
+  if (win) {
+    try { win.opener = null; } catch (e) {}
+  }
+}
+
 /* ==================== 主题 ==================== */
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
@@ -725,7 +734,7 @@ function rowHtml(it, i) {
 
   return '<div class="row' + (isNew ? ' is-new' : '') + '">' +
     '<div class="c-name">' +
-      '<a class="repo" href="' + esc(relUrl(it.url)) + '" target="_blank" rel="noopener noreferrer" title="打开 Releases 页面">' + esc(repoName(it.url)) + '</a>' +
+      '<a class="repo" href="' + esc(relUrl(it.url)) + '" target="_blank" rel="noopener noreferrer" title="在新窗口打开 Releases 页面">' + esc(repoName(it.url)) + '</a>' +
     '</div>' +
     '<div class="c-local">' +
       '<span class="ml">本地</span>' +
@@ -903,7 +912,6 @@ function syncVersion(i) {
     okText: '同步'
   }).then(ok => {
     if (!ok) return;
-    /* 校验：确认期间数据可能变化 */
     if (!it.latestVersion || it.localVersion === it.latestVersion) {
       toast('数据已变化，请重试', 'error');
       return;
@@ -947,6 +955,20 @@ function handleListClick(e) {
     case 'sync':     syncVersion(i); break;
     case 'del':      deleteItem(i); break;
   }
+}
+
+/* 仓库名点击 → 新窗口/标签页打开（window.open 兜底） */
+function handleRepoLinkClick(e) {
+  const a = e.target.closest('a.repo');
+  if (!a) return;
+  /* 修饰键点击保留浏览器默认行为（新标签页/新窗口） */
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+  const url = a.getAttribute('href');
+  if (!url) return;
+
+  e.preventDefault();
+  openInNewTab(url);
 }
 
 /* ==================== 版本检测 ==================== */
@@ -1197,6 +1219,9 @@ function bindEvents() {
 
   el.checkBtn.addEventListener('click', checkAll);
   el.manageBtn.addEventListener('click', toggleManage);
+
+  /* 列表点击：仓库名新窗口打开 + 操作按钮 */
+  el.repoList.addEventListener('click', handleRepoLinkClick);
   el.repoList.addEventListener('click', handleListClick);
 
   el.settingsBtn.addEventListener('click', openSettings);
