@@ -191,6 +191,13 @@ button{cursor:pointer;}
 .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap;}
 .modal-foot .grow{margin-right:auto;}
 
+/* 设置面板：Token 操作按钮组（位于数据管理上方） */
+.settings-actions{
+  display:flex;justify-content:flex-end;align-items:center;
+  gap:8px;margin:14px 0 16px;flex-wrap:wrap;
+}
+.settings-actions .grow{margin-right:auto;}
+
 /* ---------- 表单 ---------- */
 .field{margin-bottom:12px;}
 .field>label{display:block;margin-bottom:5px;font-size:.78rem;color:var(--dim);}
@@ -282,7 +289,7 @@ body.modal-open{overflow:hidden;}
     padding:16px 14px calc(16px + env(safe-area-inset-bottom));
   }
   .modal-foot .btn{flex:1;}
-  .data-actions{flex-direction:column;}
+  .settings-actions .btn{flex:1;}
   .date{display:none;}
 }
 @media (prefers-reduced-motion:reduce){
@@ -336,6 +343,7 @@ body.modal-open{overflow:hidden;}
       <h2>设置</h2>
       <button type="button" class="close-x" data-close aria-label="关闭">×</button>
     </div>
+
     <div class="field">
       <label for="token-input">GitHub Personal Access Token（可选）</label>
       <div class="token-wrap">
@@ -347,6 +355,14 @@ body.modal-open{overflow:hidden;}
         Token 仅保存在当前浏览器本地，<b>不会上传到任何服务器</b>。
       </div>
     </div>
+
+    <!-- Token 操作按钮组：位于数据管理上方 -->
+    <div class="settings-actions">
+      <button type="button" class="btn btn-danger grow" id="token-clear">清除 Token</button>
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="button" class="btn btn-primary" id="token-save">保存</button>
+    </div>
+
     <div class="field">
       <label>数据管理</label>
       <div class="data-actions">
@@ -354,11 +370,6 @@ body.modal-open{overflow:hidden;}
         <input type="file" id="import-file" accept=".json,.txt,application/json" hidden>
         <button type="button" class="btn" id="export-btn">导出记录</button>
       </div>
-    </div>
-    <div class="modal-foot">
-      <button type="button" class="btn btn-danger grow" id="token-clear">清除 Token</button>
-      <button type="button" class="btn" data-close>取消</button>
-      <button type="button" class="btn btn-primary" id="token-save">保存</button>
     </div>
   </div>
 </div>
