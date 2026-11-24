@@ -1,37 +1,64 @@
-name: Deploy static content to Pages
+name: Deploy Static Site to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   workflow_dispatch:
 
+# 关键权限：contents 读、pages 写、id-token 写（deploy-pages 必需）
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# 避免多次推送并发部署互相覆盖
 concurrency:
   group: "pages"
-  cancel-in-progress: true   # ✅ 关键：避免旧 run 残留
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      # 关闭 Jekyll，防止下划线开头的目录（如 _lib/）被忽略
+      - name: Disable Jekyll
+        run: touch .nojekyll
+
+      # 可选：校验子页面引用的资源路径是否存在，提前暴露 404
+      - name: Validate asset references
+        run: |
+          echo "== 检查 HTML 中引用的本地资源是否真实存在 =="
+          find . -path ./node_modules -prune -o -name "*.html" -print | while read -r html; do
+            dir=$(dirname "$html")
+            # 匹配 src="/..." 或 href="/..." 的绝对路径引用
+            grep -oE '(src|href)="/[^"]+"' "$html" 2>/dev/null | sed -E 's/(src|href)="([^"]+)"/\2/' | while read -r ref; do
+              target=".${ref}"
+              if [ ! -e "$target" ] && [ ! -e "$target/index.html" ]; then
+                echo "::warning file=$html::绝对路径引用可能失效: $ref (应改用相对路径)"
+              fi
+            done
+          done
+          echo "校验完成"
+
+      # 关键：上传整个仓库目录，保持原有层级结构
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'   # 如果你确实是根目录静态站
+          path: .          # 若站点根在子目录（如 site/），改成 path: site
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4   # ✅ 用 v4 更稳定
+        uses: actions/deploy-pages@v4
