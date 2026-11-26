@@ -1,0 +1,2104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>GKD 规则工坊</title>
+  <meta name="description" content="在浏览器本地解析 GKD 快照 ZIP，点选控件并生成可复制的本地订阅 JSON5 规则。">
+  <style>
+    :root {
+      --bg: #08110f;
+      --panel: #0e1a17;
+      --panel-2: #13221e;
+      --panel-3: #192b26;
+      --line: #284039;
+      --line-strong: #3c5c52;
+      --text: #f4f8f6;
+      --muted: #9eb0aa;
+      --faint: #6f847d;
+      --accent: #a7f32b;
+      --accent-strong: #c4ff5f;
+      --accent-ink: #162205;
+      --cyan: #56d8ca;
+      --amber: #ffbf69;
+      --danger: #ff7b7b;
+      --shadow: 0 18px 55px rgba(0, 0, 0, .28);
+      --radius: 20px;
+      --radius-sm: 12px;
+      --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", "Microsoft YaHei", monospace;
+    }
+
+    /* 只拦截点击/聚焦触发的浏览器「自动」缩放：双击缩放、iOS 输入框聚焦缩放。
+       用户主动的整页缩放完全不限制：viewport 不设 user-scalable=no / maximum-scale，
+       也不拦截 gesturestart、wheel（含 Ctrl+滚轮）与多指捏合；manipulation 本身允许 pinch-zoom。 */
+    * { box-sizing: border-box; touch-action: manipulation; }
+    html {
+      /* [滚动平滑] 原为 scroll-behavior:smooth。整页滚动动画与「内层到边界后按输入量
+         逐帧推送整页」是两套位移机制：一旦某次位移走了 smooth，它会在数百毫秒内
+         跨帧执行，与紧随其后的输入叠加，表现为页面「忽然弹一下再滑回来」。
+         整页位移统一改为即时(instant)，由输入直接决定每一帧的位移量。 */
+      scroll-behavior: auto;
+      /* [滚动平滑] 页面自身到顶/底不再有越界光晕/弹性回弹，避免转接瞬间多出一段
+         「越界后再弹回」的视觉位移 */
+      overscroll-behavior-y: none;
+      touch-action: manipulation;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      /* 滚动条槽位常驻：切换下方区块导致页面高度变化时视口宽度不变，
+         避免「控件上方的快照界面」被连带拉伸/缩放 */
+      scrollbar-gutter: stable;
+    }
+    button, input, select, textarea, [role="button"], .tab, .image-frame, .drop-zone,
+    .snapshot-card, .candidate-button, .selector-option, .icon-button { touch-action: manipulation; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(86, 216, 202, .10), transparent 31rem),
+        radial-gradient(circle at 95% 4%, rgba(167, 243, 43, .08), transparent 27rem),
+        var(--bg);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; }
+    button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+    a { color: var(--accent-strong); }
+    a:hover { color: #d9ff93; }
+    :focus-visible { outline: 3px solid rgba(167, 243, 43, .55); outline-offset: 2px; }
+    .hidden { display: none !important; }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 74px;
+      padding: 12px clamp(18px, 3vw, 42px);
+      border-bottom: 1px solid rgba(60, 92, 82, .55);
+      background: rgba(8, 17, 15, .86);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      border-radius: 13px;
+      color: var(--accent-ink);
+      background: var(--accent);
+      box-shadow: 0 0 0 6px rgba(167, 243, 43, .08);
+      font-weight: 900;
+      letter-spacing: -.04em;
+    }
+    .brand-copy { min-width: 0; }
+    .brand-title { margin: 0; font-size: 1.03rem; font-weight: 800; letter-spacing: -.01em; }
+    .brand-subtitle { margin: 1px 0 0; color: var(--muted); font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-actions { display: flex; align-items: center; gap: 9px; }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 9px 15px;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease;
+      font-weight: 700;
+    }
+    .button:hover { transform: translateY(-1px); border-color: #5c7d72; background: #1a302a; }
+    .button:active { transform: translateY(0); }
+    .button.primary { border-color: var(--accent); color: var(--accent-ink); background: var(--accent); }
+    .button.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+    .button.ghost { background: transparent; }
+    .button.danger { color: #ffd0d0; border-color: rgba(255, 123, 123, .45); background: rgba(255, 123, 123, .08); }
+    .button.small { min-height: 36px; padding: 7px 11px; border-radius: 10px; font-size: .88rem; }
+    .button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .button svg { width: 18px; height: 18px; flex: 0 0 auto; }
+
+    main { width: min(1800px, 100%); margin: 0 auto; padding: 24px clamp(14px, 2.6vw, 40px) 42px; overflow-x: clip; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      padding: clamp(16px, 2.2vw, 26px);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(135deg, rgba(19, 34, 30, .96), rgba(10, 22, 18, .98));
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      right: -110px;
+      top: -130px;
+      border-radius: 50%;
+      border: 1px solid rgba(167, 243, 43, .2);
+      pointer-events: none;
+    }
+    .hero-import { position: relative; z-index: 1; min-width: 0; }
+    .hero-intro { position: relative; z-index: 1; display: grid; gap: 10px; min-width: 0; }
+    .hero-lead { max-width: 760px; margin: 0; color: #c3d0cc; font-size: .92rem; }
+    .hero-points { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; color: #c8d7d2; background: rgba(8, 17, 15, .52); font-size: .8rem; }
+    .pill-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px rgba(167, 243, 43, .8); }
+
+    .drop-zone {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      min-height: 168px;
+      padding: 18px 22px;
+      border: 1.5px dashed #537167;
+      border-radius: 18px;
+      background: rgba(5, 13, 11, .46);
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease, transform .18s ease;
+    }
+    .drop-zone:hover, .drop-zone.dragging { border-color: var(--accent); background: rgba(167, 243, 43, .055); transform: translateY(-2px); }
+    .drop-icon { display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto 10px; border: 1px solid rgba(167, 243, 43, .38); border-radius: 16px; color: var(--accent); background: rgba(167, 243, 43, .08); }
+    .drop-icon svg { width: 25px; height: 25px; }
+    .drop-title { margin: 0; font-size: 1rem; font-weight: 800; }
+    .drop-help { margin: 4px 0 12px; color: var(--muted); font-size: .84rem; }
+    .privacy-note { margin: 10px 0 0; color: var(--faint); font-size: .74rem; }
+
+    .progress-box { margin-top: 15px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 13px; color: #dbe7e3; background: var(--panel); font-size: .9rem; }
+    .error-box { margin: 15px 0 0; padding: 14px 16px; border: 1px solid rgba(255, 123, 123, .35); border-radius: 13px; color: #ffd1d1; background: rgba(255, 123, 123, .08); }
+    .error-box ul { margin: 8px 0 0; padding-left: 20px; }
+
+    /* [布局固定版] 右栏轨道改为 minmax(0, 1fr)：宽度只由视口决定，
+       任何内部超宽内容（超长代码行、超长选择器）都无法反向撑宽整页。 */
+    .workspace { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; align-items: start; max-width: 100%; }
+    .workspace > * { min-width: 0; max-width: 100%; }
+    .workspace-main { min-width: 0; max-width: 100%; }
+    .panel { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(14, 26, 23, .94); box-shadow: 0 12px 36px rgba(0, 0, 0, .17); }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 62px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+    .panel-title { min-width: 0; margin: 0; font-size: .97rem; font-weight: 800; }
+    .panel-kicker { margin: 1px 0 0; color: var(--muted); font-size: .76rem; }
+    .panel-body { padding: 16px; }
+
+    .snapshot-panel { position: sticky; top: 92px; max-height: calc(100vh - 112px); overflow: hidden; }
+    .snapshot-list { display: grid; gap: 10px; max-height: calc(100vh - 190px); padding: 12px; overflow: auto; }
+    .snapshot-card { width: 100%; padding: 9px; border: 1px solid transparent; border-radius: 14px; background: transparent; text-align: left; cursor: pointer; transition: border-color .16s ease, background .16s ease; }
+    .snapshot-card:hover { background: var(--panel-2); }
+    .snapshot-card.active { border-color: rgba(167, 243, 43, .56); background: rgba(167, 243, 43, .07); }
+    .snapshot-thumb { position: relative; overflow: hidden; width: 100%; aspect-ratio: 16 / 10; border-radius: 10px; background: #050b09; }
+    .snapshot-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: center 16%; display: block; }
+    .snapshot-index { position: absolute; top: 7px; left: 7px; min-width: 25px; height: 25px; padding: 3px 7px; border-radius: 8px; color: var(--accent-ink); background: var(--accent); font-size: .72rem; font-weight: 900; text-align: center; }
+    .snapshot-name { margin: 9px 0 0; color: var(--text); font-size: .89rem; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .snapshot-meta { margin: 2px 0 0; color: var(--muted); font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .viewer-panel { overflow: hidden; }
+    .viewer-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+    .app-summary { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .app-avatar { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 auto; border-radius: 12px; color: var(--accent); background: rgba(167, 243, 43, .09); font-weight: 900; }
+    .app-copy { min-width: 0; }
+    .app-name { margin: 0; font-size: .94rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .app-id { margin: 1px 0 0; color: var(--muted); font-family: var(--font-mono); font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .zoom-controls { display: flex; align-items: center; gap: 6px; }
+    .icon-button { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); cursor: pointer; }
+    .icon-button:hover { border-color: var(--line-strong); background: var(--panel-3); }
+    .zoom-value { min-width: 50px; color: var(--muted); font-family: var(--font-mono); font-size: .78rem; text-align: center; }
+
+    .viewer-status { display: flex; flex-wrap: wrap; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--line); background: rgba(5, 13, 11, .34); }
+    .status-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: .75rem; }
+    .status-chip strong { color: #e9f1ee; font-weight: 700; }
+
+    /* [滚动链] 纵向 contain：屏蔽浏览器自身的链式滚动，越界余量只由下面的 JS 独家转接，
+       避免「原生链式滚动 + JS 转接」双份叠加（叠加正是转接瞬间「弹一下」的根因）；
+       横向保持 auto，代码/快照的横向滚动链仍是原生行为。overflow-anchor 关闭滚动锚定，
+       防止滚动中内容微调导致位置被浏览器二次修正。*/
+    .image-viewport { position: relative; min-width: 0; max-width: 100%; overscroll-behavior-x: auto; overscroll-behavior-y: contain; overflow-anchor: none; min-height: 560px; max-height: calc(100vh - 250px); padding: 20px; overflow: auto; scrollbar-gutter: stable; background: #050b09; background-image: linear-gradient(45deg, rgba(255,255,255,.018) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.018) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,.018) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.018) 75%); background-size: 24px 24px; background-position: 0 0, 0 12px, 12px -12px, -12px 0; }
+    /* 宽度以固定像素基准 --frame-base 计算：下方区块切换、候选/参数展开、软键盘弹出
+       都不会改变上方快照的渲染尺寸；只有窗口真实 resize 或用户主动点缩放按钮才变化。 */
+    .image-frame { position: relative; width: calc(var(--frame-base, 100%) * var(--zoom, 1)); min-width: 280px; margin: 0 auto; cursor: crosshair; user-select: none; }
+    .image-frame img { display: block; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 15px 45px rgba(0, 0, 0, .45); }
+    .node-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+    .node-overlay .candidate { fill: rgba(86, 216, 202, .05); stroke: rgba(86, 216, 202, .72); stroke-width: 4; vector-effect: non-scaling-stroke; }
+    .node-overlay .selected { fill: rgba(167, 243, 43, .13); stroke: var(--accent); stroke-width: 5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 5px rgba(167, 243, 43, .72)); }
+    .node-overlay .click-point { fill: var(--amber); stroke: #201303; stroke-width: 3; vector-effect: non-scaling-stroke; }
+    .viewer-hint { display: flex; align-items: center; justify-content: center; min-height: 560px; padding: 40px; color: var(--muted); text-align: center; }
+
+    .selection-area { padding: 2px 0 10px; }
+    .selection-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; padding: 16px; }
+    .selection-title { margin: 0; font-size: .94rem; font-weight: 800; }
+    .selection-subtitle { margin: 3px 0 0; color: var(--muted); font-size: .78rem; }
+    .candidate-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 8px; padding: 0 16px 16px; }
+    .candidate-button { min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); text-align: left; cursor: pointer; }
+    .candidate-button:hover { border-color: var(--line-strong); }
+    .candidate-button.active { border-color: var(--accent); background: rgba(167, 243, 43, .07); }
+    .candidate-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .candidate-class { min-width: 0; font-family: var(--font-mono); font-size: .78rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .candidate-depth { color: var(--faint); font-family: var(--font-mono); font-size: .7rem; }
+    .candidate-label { margin: 5px 0 0; color: var(--muted); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .lower-panel { margin-top: 16px; min-width: 0; max-width: 100%; overflow: hidden; }
+    /* [布局固定版] Tab 横条高度固定，三个 Tab 等分整栏宽度，切换/内容变化都不影响尺寸 */
+    .pane-tabs-bar { display: flex; align-items: center; min-height: 58px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(5, 13, 11, .3); }
+    .pane { display: none; min-width: 0; }
+    .pane.active { display: block; min-width: 0; min-height: 340px; }
+    .pane-inspect.active { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+    .pane-inspect.active > .empty-inspector { grid-column: 1 / -1; }
+    .pane-inspect .section { border-right: 1px solid var(--line); }
+    .pane-inspect .section:last-of-type { border-right: 0; }
+    .pane-empty { display: grid; place-items: center; min-height: 200px; padding: 24px; color: var(--muted); text-align: center; font-size: .88rem; }
+    .section { padding: 16px; border-bottom: 1px solid var(--line); }
+    .section:last-child { border-bottom: 0; }
+    .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .section-heading h3 { margin: 0; font-size: .9rem; }
+    .section-note { color: var(--faint); font-size: .72rem; }
+    .empty-inspector { padding: 34px 20px; color: var(--muted); text-align: center; }
+
+    .attribute-grid { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px 10px; margin: 0; }
+    .attribute-grid dt { color: var(--faint); font-size: .75rem; }
+    .attribute-grid dd { min-width: 0; margin: 0; color: #dbe6e2; font-family: var(--font-mono); font-size: .75rem; overflow-wrap: anywhere; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .badge { display: inline-flex; align-items: center; min-height: 25px; padding: 3px 7px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); background: rgba(5, 13, 11, .28); font-size: .68rem; }
+    .badge.good { color: #d9ff98; border-color: rgba(167, 243, 43, .35); background: rgba(167, 243, 43, .07); }
+    .badge.warn { color: #ffd29c; border-color: rgba(255, 191, 105, .36); background: rgba(255, 191, 105, .07); }
+
+    .selector-list { display: grid; gap: 8px; }
+    .selector-option { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-2); text-align: left; cursor: pointer; }
+    .selector-option:hover { border-color: var(--line-strong); }
+    .selector-option.active { border-color: var(--accent); background: rgba(167, 243, 43, .065); }
+    .selector-option-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .selector-option-name { font-size: .75rem; font-weight: 800; }
+    .selector-option code { display: block; margin-top: 6px; color: #dce8e4; font-family: var(--font-mono); font-size: .72rem; line-height: 1.45; overflow-wrap: anywhere; }
+    .match-count { flex: 0 0 auto; color: var(--muted); font-size: .68rem; }
+    .match-count.unique { color: var(--accent); }
+
+    label.field-label { display: block; margin-bottom: 6px; color: #c9d5d1; font-size: .75rem; font-weight: 750; }
+    .field { margin-top: 12px; }
+    .field:first-child { margin-top: 0; }
+    .input, .select, .textarea {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      color: var(--text);
+      background: #091410;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .textarea { min-height: 78px; resize: vertical; font-family: var(--font-mono); font-size: .78rem; line-height: 1.5; }
+    .input:focus, .select:focus, .textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(167, 243, 43, .09); }
+    .input:disabled, .select:disabled { color: var(--faint); opacity: .65; }
+    .select { appearance: none; padding-right: 34px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 17px) 18px, calc(100% - 12px) 18px; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+    .field-help { margin: 5px 0 0; color: var(--faint); font-size: .69rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+    .form-grid .field { margin-top: 0; }
+
+    .toggle-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-top: 12px; }
+    .toggle-row:first-child { margin-top: 0; }
+    .toggle-copy { min-width: 0; }
+    .toggle-title { margin: 0; color: #dce7e3; font-size: .78rem; font-weight: 750; }
+    .toggle-help { margin: 2px 0 0; color: var(--faint); font-size: .68rem; }
+    .switch { position: relative; display: inline-flex; width: 44px; height: 25px; flex: 0 0 auto; }
+    .switch input { position: absolute; opacity: 0; pointer-events: none; }
+    .switch-track { width: 100%; height: 100%; border: 1px solid var(--line-strong); border-radius: 999px; background: #08110f; cursor: pointer; transition: background .18s ease, border-color .18s ease; }
+    .switch-track::after { content: ""; position: absolute; width: 17px; height: 17px; top: 4px; left: 4px; border-radius: 50%; background: var(--muted); transition: transform .18s ease, background .18s ease; }
+    .switch input:checked + .switch-track { border-color: var(--accent); background: rgba(167, 243, 43, .22); }
+    .switch input:checked + .switch-track::after { transform: translateX(19px); background: var(--accent); }
+    .switch input:focus-visible + .switch-track { outline: 3px solid rgba(167, 243, 43, .45); outline-offset: 2px; }
+
+    /* 代码复制区块沿用 .output-toolbar / .paste-guide / .code-wrap 样式 */
+    .output-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .tabs { display: inline-flex; flex-wrap: nowrap; gap: 5px; max-width: 100%; overflow-x: auto; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #091410; }
+    .tab { min-height: 34px; padding: 6px 11px; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; font-size: .78rem; font-weight: 750; white-space: nowrap; flex: 0 0 auto; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent-ink); background: var(--accent); }
+    .pane-tabs { display: flex; width: 100%; flex-wrap: nowrap; overflow: hidden; }
+    .pane-tabs .tab { flex: 1 1 0; min-width: 0; height: 36px; padding: 0 8px; text-align: center; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .output-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .paste-guide { padding: 10px 16px; border-bottom: 1px solid var(--line); color: var(--muted); background: rgba(5, 13, 11, .34); font-size: .78rem; }
+    .paste-guide strong { color: #e6efec; }
+    /* [布局固定版] 超宽代码行只在代码栏内部横向滚动，不撑宽页面 */
+        /* [滚动链] 代码框纵向到顶/底后同样把滚动交还给页面，不产生卡顿 */
+    .code-wrap { position: relative; min-width: 0; max-width: 100%; max-height: 520px; overflow: auto; overscroll-behavior-x: auto; overscroll-behavior-y: contain; overflow-anchor: none; background: #050b09; }
+    pre { margin: 0; padding: 20px; min-height: 260px; color: #d9e6e1; font-family: var(--font-mono); font-size: .82rem; line-height: 1.62; tab-size: 2; white-space: pre; width: max-content; min-width: 100%; }
+    .output-placeholder { display: grid; place-items: center; min-height: 260px; padding: 30px; color: var(--muted); text-align: center; }
+
+    .footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; padding: 18px 2px 0; color: var(--faint); font-size: .78rem; }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 14px; }
+    .footer a { color: var(--muted); }
+
+    .toast-stack { position: fixed; right: 18px; bottom: 18px; z-index: 100; display: grid; gap: 9px; width: min(360px, calc(100vw - 36px)); pointer-events: none; }
+    .toast { padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 12px; color: #eef6f3; background: #14241f; box-shadow: var(--shadow); animation: toast-in .2s ease both; font-size: .86rem; }
+    .toast.success { border-color: rgba(167, 243, 43, .5); }
+    .toast.error { border-color: rgba(255, 123, 123, .5); }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+
+    /* 触屏/混合设备：表单控件字号 >= 16px，避免 iOS 聚焦时自动放大整个页面
+       （页面被放大时，控件上方的快照截图也会跟着变大）。不影响整页缩放能力。 */
+    @media (pointer: coarse), (any-pointer: coarse) {
+      .input, .select, .textarea, input, select, textarea { font-size: 16px; }
+    }
+
+    @media (max-width: 1280px) {
+      .workspace { grid-template-columns: 230px minmax(0, 1fr); }
+      .pane-inspect.active { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 860px) {
+      .site-header { position: static; min-height: 66px; padding: 11px 15px; }
+      .brand-subtitle { display: none; }
+      .header-actions .button span { display: none; }
+      main { padding: 14px 10px 28px; }
+      .hero { padding: 16px; border-radius: 20px; }
+      .drop-zone { min-height: 150px; }
+      .workspace { grid-template-columns: 1fr; }
+      .snapshot-panel { position: static; max-height: none; }
+      .snapshot-list { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); max-height: none; }
+      .image-viewport { min-height: 430px; max-height: 70vh; padding: 12px; }
+      .viewer-hint { min-height: 430px; }
+      .pane-inspect.active { grid-template-columns: 1fr; }
+      .pane-inspect .section { border-right: 0; border-bottom: 1px solid var(--line); }
+      .pane-inspect .section:last-of-type { border-bottom: 0; }
+      .output-toolbar { align-items: stretch; }
+      .tabs, .output-actions { width: 100%; }
+      .output-actions .button { flex: 1; }
+      pre { font-size: .74rem; padding: 15px; }
+    }
+
+    @media (max-width: 520px) {
+      .brand-title { font-size: .94rem; }
+      .brand-mark { width: 38px; height: 38px; }
+      .hero { padding: 14px 12px; }
+      .hero-points { display: grid; grid-template-columns: 1fr 1fr; }
+      .pill { justify-content: center; font-size: .76rem; }
+      .panel-header { padding: 12px; }
+      .viewer-status { padding: 9px 11px; }
+      .candidate-list { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      /* 三个 Tab 始终横向排成一行，缩窄时仅压缩内边距与字号，不竖排 */
+      .tabs { display: flex; flex-wrap: nowrap; }
+      .tab { flex: 1 1 0; min-width: 0; padding: 6px 5px; font-size: .7rem; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">G</div>
+      <div class="brand-copy">
+        <p class="brand-title">GKD 规则工坊</p>
+        <p class="brand-subtitle">快照点选 · 选择器建议 · 本地订阅 JSON5</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="button ghost small hidden" id="addZipButton" type="button" title="继续导入快照 ZIP">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span>继续导入</span>
+      </button>
+      <button class="button danger small hidden" id="clearButton" type="button" title="清空已载入的快照">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 10v6M14 10v6"/></svg>
+        <span>清空</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="hero">
+      <div class="hero-import">
+        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="选择或拖入 GKD 快照 ZIP">
+          <div>
+            <div class="drop-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 15V3m0 0 4 4m-4-4L8 7M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg>
+            </div>
+            <p class="drop-title">拖入快照 ZIP</p>
+            <p class="drop-help">支持一次选择多个文件</p>
+            <span class="button primary">选择 ZIP 文件</span>
+            <p class="privacy-note">文件不会离开你的设备，也不会上传到任何服务器</p>
+          </div>
+        </div>
+        <div class="progress-box hidden" id="progressBox" role="status" aria-live="polite"></div>
+        <div class="error-box hidden" id="errorBox" role="alert"></div>
+      </div>
+      <div class="hero-intro">
+        <p class="hero-lead">导入 GKD 快照 ZIP，在截图上点选控件，自动生成可粘贴到 GKD 本地订阅的 JSON5 规则。</p>
+        <div class="hero-points" aria-label="功能特点">
+          <span class="pill"><span class="pill-dot"></span>ZIP 本地解析</span>
+          <span class="pill"><span class="pill-dot"></span>新旧快照格式</span>
+          <span class="pill"><span class="pill-dot"></span>重叠节点候选</span>
+          <span class="pill"><span class="pill-dot"></span>一键复制 JSON5</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace hidden" id="workspace" aria-label="GKD 快照规则编辑器">
+      <aside class="panel snapshot-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">快照</h2>
+            <p class="panel-kicker" id="snapshotCount">0 个界面</p>
+          </div>
+          <button class="icon-button" id="sideAddButton" type="button" title="继续导入 ZIP" aria-label="继续导入 ZIP">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="snapshot-list" id="snapshotList"></div>
+      </aside>
+
+      <div class="workspace-main">
+        <section class="panel viewer-panel">
+          <div class="panel-header viewer-toolbar">
+            <div class="app-summary">
+              <div class="app-avatar" id="appAvatar">?</div>
+              <div class="app-copy">
+                <p class="app-name" id="appName">尚未选择快照</p>
+                <p class="app-id" id="appId">—</p>
+              </div>
+            </div>
+            <div class="zoom-controls" aria-label="截图缩放">
+              <button class="icon-button" id="zoomOut" type="button" aria-label="缩小截图">−</button>
+              <span class="zoom-value" id="zoomValue">100%</span>
+              <button class="icon-button" id="zoomIn" type="button" aria-label="放大截图">＋</button>
+              <button class="icon-button" id="zoomReset" type="button" aria-label="恢复适合宽度" title="适合宽度">↺</button>
+            </div>
+          </div>
+          <div class="viewer-status" id="viewerStatus"></div>
+          <div class="image-viewport" id="imageViewport">
+            <div class="viewer-hint" id="viewerHint">在截图上点击想让 GKD 操作的位置</div>
+            <div class="image-frame hidden" id="imageFrame" style="--zoom: 1">
+              <img id="snapshotImage" alt="GKD 快照截图" draggable="false">
+              <svg class="node-overlay" id="nodeOverlay" aria-hidden="true"></svg>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel lower-panel" id="lowerPanel" aria-label="解析结果">
+          <div class="pane-tabs-bar">
+            <div class="tabs pane-tabs" role="tablist" aria-label="结果分区">
+              <button class="tab" type="button" role="tab" aria-selected="false" data-pane="candidates">控件候选</button>
+              <button class="tab active" type="button" role="tab" aria-selected="true" data-pane="code">代码复制</button>
+              <button class="tab" type="button" role="tab" aria-selected="false" data-pane="inspect">规则检查</button>
+            </div>
+          </div>
+
+          <div class="pane pane-candidates" id="paneCandidates" data-pane-name="candidates" role="tabpanel">
+            <div class="pane-empty" id="candidatePlaceholder">点击截图中的目标位置后，这里会显示该位置的控件候选。</div>
+            <div class="selection-area hidden" id="selectionArea">
+              <div class="selection-head">
+                <div>
+                  <h3 class="selection-title">此处的控件候选</h3>
+                  <p class="selection-subtitle" id="clickCoordinates">—</p>
+                </div>
+                <span class="badge" id="candidateCount">0 个</span>
+              </div>
+              <div class="candidate-list" id="candidateList"></div>
+            </div>
+          </div>
+
+          <div class="pane pane-code active" id="paneCode" data-pane-name="code" role="tabpanel">
+            <div class="output-toolbar">
+              <div class="tabs" role="tablist" aria-label="代码输出类型">
+                <button class="tab active" type="button" role="tab" aria-selected="true" data-mode="app">应用规则</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-mode="group">仅规则组</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-mode="subscription">完整订阅</button>
+              </div>
+              <div class="output-actions">
+                <button class="button small" id="downloadButton" type="button" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 20h16"/></svg>
+                  下载 .json5
+                </button>
+                <button class="button primary small" id="copyButton" type="button" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>
+                  复制代码
+                </button>
+              </div>
+            </div>
+            <div class="paste-guide" id="pasteGuide"><strong>粘贴位置：</strong>先在截图上选择控件。</div>
+            <div class="code-wrap">
+              <div class="output-placeholder" id="outputPlaceholder">选中控件后，这里会实时生成规则代码。</div>
+              <pre class="hidden" id="codePreview"><code></code></pre>
+            </div>
+          </div>
+
+          <div class="pane pane-inspect" id="paneInspect" data-pane-name="inspect" role="tabpanel">
+            <div class="empty-inspector" id="emptyInspector">点击截图中的目标位置后，可在这里检查节点并调整规则。</div>
+            <section class="section hidden" id="nodeSection">
+              <div class="section-heading">
+                <h3>已选节点</h3>
+                <span class="section-note" id="nodeNumber">#—</span>
+              </div>
+              <dl class="attribute-grid" id="attributeGrid"></dl>
+              <div class="badge-row" id="nodeBadges"></div>
+            </section>
+
+            <section class="section hidden" id="selectorSection">
+              <div class="section-heading">
+                <h3>选择器建议</h3>
+                <span class="section-note">本快照内验证</span>
+              </div>
+              <div class="selector-list" id="selectorList"></div>
+              <div class="field">
+                <label class="field-label" for="selectorInput">最终 matches</label>
+                <textarea class="textarea" id="selectorInput" spellcheck="false" placeholder="[id=&quot;...&quot;]"></textarea>
+                <p class="field-help">可手动修改；工具只对自动建议计算命中数量。</p>
+              </div>
+            </section>
+
+            <section class="section hidden" id="settingsSection">
+              <div class="section-heading">
+                <h3>规则参数</h3>
+                <span class="section-note">修改即更新代码</span>
+              </div>
+              <div class="field">
+                <label class="field-label" for="ruleNameInput">规则名称</label>
+                <input class="input" id="ruleNameInput" type="text" value="自动点击目标控件">
+              </div>
+              <div class="field">
+                <label class="field-label" for="ruleDescInput">说明</label>
+                <input class="input" id="ruleDescInput" type="text" value="点击目标控件">
+              </div>
+              <div class="form-grid field">
+                <div>
+                  <label class="field-label" for="groupKeyInput">规则组 key</label>
+                  <input class="input" id="groupKeyInput" type="number" min="0" step="1" value="0">
+                </div>
+                <div>
+                  <label class="field-label" for="ruleKeyInput">子规则 key</label>
+                  <input class="input" id="ruleKeyInput" type="number" min="0" step="1" value="0">
+                </div>
+              </div>
+              <div class="form-grid field">
+                <div>
+                  <label class="field-label" for="matchTimeInput">匹配时长 ms</label>
+                  <input class="input" id="matchTimeInput" type="number" min="0" step="500" value="10000">
+                </div>
+                <div>
+                  <label class="field-label" for="actionMaximumInput">最多执行</label>
+                  <input class="input" id="actionMaximumInput" type="number" min="1" step="1" value="1">
+                </div>
+              </div>
+              <div class="form-grid field">
+                <div>
+                  <label class="field-label" for="resetMatchSelect">重置时机</label>
+                  <select class="select" id="resetMatchSelect">
+                    <option value="app" selected>重新进入应用</option>
+                    <option value="activity">Activity 变化</option>
+                    <option value="none">不写入</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="field-label" for="actionSelect">执行动作</label>
+                  <select class="select" id="actionSelect">
+                    <option value="click" selected>click（自动）</option>
+                    <option value="clickCenter">clickCenter</option>
+                    <option value="clickNode">clickNode</option>
+                    <option value="longClick">longClick</option>
+                    <option value="back">back</option>
+                    <option value="none">none</option>
+                  </select>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-copy">
+                  <p class="toggle-title">启用 fastQuery</p>
+                  <p class="toggle-help">仅在选择器具备可快速查找属性时建议开启</p>
+                </div>
+                <label class="switch">
+                  <input id="fastQueryToggle" type="checkbox">
+                  <span class="switch-track"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-copy">
+                  <p class="toggle-title">限定 activityId</p>
+                  <p class="toggle-help" id="activityHelp">当前快照未提供 activityId</p>
+                </div>
+                <label class="switch">
+                  <input id="activityToggle" type="checkbox">
+                  <span class="switch-track"></span>
+                </label>
+              </div>
+              <div class="field">
+                <label class="field-label" for="snapshotUrlInput">在线快照链接（可选）</label>
+                <input class="input" id="snapshotUrlInput" type="url" placeholder="https://i.gkd.li/i/12345678">
+                <p class="field-help">本地 ZIP 不是 URL；留空会自动省略 snapshotUrls。</p>
+              </div>
+            </section>
+          </div>
+        </section>
+      </div>
+
+    </section>
+
+    <footer class="footer">
+      <span>规则建议需在目标应用中实测；应用升级后控件属性可能变化。</span>
+      <nav class="footer-links" aria-label="参考资料">
+        <a href="https://gkd.li/guide/subscription" target="_blank" rel="noreferrer">GKD 订阅规则</a>
+        <a href="https://gkd.li/guide/selector" target="_blank" rel="noreferrer">选择器语法</a>
+        <a href="https://github.com/gkd-kit/gkd" target="_blank" rel="noreferrer">GKD GitHub</a>
+      </nav>
+    </footer>
+  </main>
+
+  <input id="fileInput" type="file" accept=".zip,application/zip" multiple hidden>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    'use strict';
+
+    // GKD 官方 Android 导出、网页审查工具导出及其批量嵌套 ZIP 都在本地解析。
+    // 限制只用于防止异常 ZIP 耗尽浏览器内存，不限制正常快照版本。
+    const MAX_ZIP_BYTES = 512 * 1024 * 1024;
+    const MAX_ENTRY_BYTES = 160 * 1024 * 1024;
+    const MAX_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024;
+    const MAX_ENTRIES = 4096;
+    const MAX_NESTED_ZIP_DEPTH = 4;
+    const IMAGE_EXTENSIONS = ['png', 'webp', 'jpg', 'jpeg', 'gif', 'bmp'];
+
+    const state = {
+      snapshots: [],
+      activeIndex: -1,
+      selectedNodeId: null,
+      candidateIds: [],
+      clickPoint: null,
+      selectorOptions: [],
+      selectedOption: 0,
+      zoom: 1,
+      outputMode: 'app',
+      activePane: 'code',
+      code: '',
+      nameDirty: false,
+      descDirty: false,
+      loading: false,
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      hero: $('hero'), workspace: $('workspace'), dropZone: $('dropZone'), fileInput: $('fileInput'),
+      progressBox: $('progressBox'), errorBox: $('errorBox'), addZipButton: $('addZipButton'),
+      sideAddButton: $('sideAddButton'), clearButton: $('clearButton'), snapshotList: $('snapshotList'),
+      snapshotCount: $('snapshotCount'), appAvatar: $('appAvatar'), appName: $('appName'), appId: $('appId'),
+      viewerStatus: $('viewerStatus'), imageViewport: $('imageViewport'), viewerHint: $('viewerHint'),
+      imageFrame: $('imageFrame'), snapshotImage: $('snapshotImage'), nodeOverlay: $('nodeOverlay'),
+      selectionArea: $('selectionArea'), candidatePlaceholder: $('candidatePlaceholder'), clickCoordinates: $('clickCoordinates'), candidateCount: $('candidateCount'),
+      candidateList: $('candidateList'), zoomOut: $('zoomOut'), zoomIn: $('zoomIn'), zoomReset: $('zoomReset'),
+      zoomValue: $('zoomValue'), emptyInspector: $('emptyInspector'), nodeSection: $('nodeSection'),
+      selectorSection: $('selectorSection'), settingsSection: $('settingsSection'), nodeNumber: $('nodeNumber'),
+      attributeGrid: $('attributeGrid'), nodeBadges: $('nodeBadges'), selectorList: $('selectorList'),
+      selectorInput: $('selectorInput'), ruleNameInput: $('ruleNameInput'), ruleDescInput: $('ruleDescInput'),
+      groupKeyInput: $('groupKeyInput'), ruleKeyInput: $('ruleKeyInput'), matchTimeInput: $('matchTimeInput'),
+      actionMaximumInput: $('actionMaximumInput'), resetMatchSelect: $('resetMatchSelect'), actionSelect: $('actionSelect'),
+      fastQueryToggle: $('fastQueryToggle'), activityToggle: $('activityToggle'), activityHelp: $('activityHelp'),
+      snapshotUrlInput: $('snapshotUrlInput'), pasteGuide: $('pasteGuide'), codePreview: $('codePreview'),
+      outputPlaceholder: $('outputPlaceholder'), copyButton: $('copyButton'), downloadButton: $('downloadButton'),
+      toastStack: $('toastStack'),
+    };
+
+    // 三个分区只由顶部按钮手动切换；选点、输入、代码模式切换等操作都不会改变当前分区。
+    function switchPane(name) {
+      if (!['candidates', 'code', 'inspect'].includes(name)) return;
+      // [布局固定版] 记录切换前滚动位置，切换后原样还原：三个分区高度若有差异也不让页面跳
+      const keepScrollY = window.scrollY;
+      const keepScrollX = window.scrollX;
+      state.activePane = name;
+      document.querySelectorAll('.pane-tabs .tab[data-pane]').forEach((tab) => {
+        const active = tab.dataset.pane === name;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('.pane[data-pane-name]').forEach((pane) => {
+        pane.classList.toggle('active', pane.dataset.paneName === name);
+      });
+      if (window.scrollY !== keepScrollY || window.scrollX !== keepScrollX) {
+        const root = document.documentElement;
+        const prevBehavior = root.style.scrollBehavior;
+        root.style.scrollBehavior = 'auto';
+        window.scrollTo(keepScrollX, keepScrollY);
+        root.style.scrollBehavior = prevBehavior;
+      }
+      // 分区切换后不应重算快照基准（尺寸恒定），此处只做一次校验式空转，确保未被连带改动
+      syncFrameBase(false);
+    }
+    document.querySelectorAll('.pane-tabs .tab[data-pane]').forEach((tab) => {
+      tab.addEventListener('click', () => switchPane(tab.dataset.pane));
+    });
+    // 只拦截「单指快速连点」这一种会引发浏览器双击自动缩放的行为。
+    // 多指手势（捏合）、Ctrl+滚轮、浏览器缩放菜单一律放行 —— 整页缩放能力保持完好。
+    // 表单控件交给 16px 规则处理，此处不拦截，以保留双击选词等正常编辑操作。
+    const isTextField = (target) => target instanceof Element
+      && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+    let lastTapTime = 0;
+    document.addEventListener('touchend', (event) => {
+      // 多指手势（捏合缩放）或残留触点：直接放行，绝不 preventDefault
+      if (event.touches.length > 0 || event.changedTouches.length !== 1) { lastTapTime = 0; return; }
+      if (isTextField(event.target)) { lastTapTime = 0; return; }
+      const now = Date.now();
+      if (now - lastTapTime < 350) {
+        event.preventDefault();   // 阻止第二次 tap 触发的双击缩放
+        lastTapTime = 0;
+      } else {
+        lastTapTime = now;
+      }
+    }, { passive: false });
+
+    // ===== 滚动链即时转接（同一次操作内完成） =====
+    // 目标：代码框 / 快照框纵向滚到顶或底时，本次滚轮 tick / 本次触摸手势的剩余滚动量
+    // 立刻转给整页，不再出现「到底后还要再滑一次页面才动」。
+    // 策略：只接管「已到边界」的那部分量 —— 未到边界完全不干预（交给浏览器默认滚动），
+    // 因此不会双倍、不会跳变；到边界时 preventDefault 精确接管，先把手势用尽，余量推页面。
+    const CHAINED_SCROLLER = '.code-wrap, #imageViewport';
+    const chainedScrollTarget = (node) => (node instanceof Element ? node.closest(CHAINED_SCROLLER) : null);
+    const pageScrollTop = () => window.scrollY
+      || (document.scrollingElement ? document.scrollingElement.scrollTop : 0);
+    const pageScrollMax = () => Math.max(
+      0,
+      (document.scrollingElement || document.documentElement).scrollHeight - window.innerHeight
+    );
+    // 容器是否支持 overscroll-behavior（支持时纵向 contain 已阻断浏览器自身的链式滚动，
+    // 页面位移只可能来自下面的 JS，杜绝「原生 + JS」双份叠加）
+    const CAN_CONTAIN_OVERSCROLL = typeof CSS !== 'undefined'
+      && typeof CSS.supports === 'function'
+      && CSS.supports('overscroll-behavior-y', 'contain');
+    // 程序化滚动整页：显式 behavior:'instant'，绕过 html{scroll-behavior:smooth}。
+    // 若走 smooth，滚动会被排成动画并跨帧执行，与下一次输入叠加时表现为「忽然弹一下」。
+    function scrollPageTo(top) {
+      // eslint-disable-next-line no-empty
+      try {
+        window.scrollTo({ top, left: window.scrollX, behavior: 'instant' });
+      } catch (error) {
+        const root = document.documentElement;
+        const previous = root.style.scrollBehavior;
+        root.style.scrollBehavior = 'auto';
+        window.scrollTo(window.scrollX, top);
+        root.style.scrollBehavior = previous;
+      }
+    }
+    // 把一次滚动量拆成「内层还能用掉的」与「到达边界后剩下的」
+    function splitScroll(scroller, delta) {
+      const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      const start = scroller.scrollTop;
+      const clamped = Math.max(0, Math.min(max, start + delta));
+      const used = clamped - start;
+      return { max, clamped, used, rest: delta - used };
+    }
+    // 只在页面确实还能朝该方向移动时才推动页面，避免边界空推造成回弹错觉
+    function pushPage(rest) {
+      const from = pageScrollTop();
+      const target = Math.max(0, Math.min(pageScrollMax(), from + rest));
+      if (Math.abs(target - from) < 0.5) return false;
+      scrollPageTo(target);
+      return true;
+    }
+    document.addEventListener('wheel', (event) => {
+      // Ctrl+滚轮=整页缩放、Shift+滚轮=横向滚动，均保持浏览器原生行为
+      if (event.defaultPrevented || event.ctrlKey || event.shiftKey) return;
+      const scroller = chainedScrollTarget(event.target);
+      if (!scroller) return;
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+      const dy = event.deltaY * unit;
+      if (!dy) return;
+      if (Math.abs(event.deltaX * unit) > Math.abs(dy)) return;   // 横向手势交给代码栏横滚
+      const plan = splitScroll(scroller, dy);
+      if (plan.max <= 1) return;               // 内层不可纵向滚动 → 直接滚页面
+      if (Math.abs(plan.rest) < 0.5) return;   // 未到边界 → 不接管，浏览器默认滚动
+      // 到边界：本次 tick 内立即续接。
+      // 触控板惯性阶段的事件不可取消（cancelable=false），此时浏览器本会自己链式滚动；
+      // 容器的 overscroll-behavior-y:contain 已把这条路径关掉，页面位移只由这里产生，
+      // 因此不存在「原生滚一次 + JS 再滚一次」的双份位移。不支持 contain 的旧浏览器
+      // 则直接放行给原生链式滚动（同样是当次生效、连续平滑）。
+      if (!event.cancelable && !CAN_CONTAIN_OVERSCROLL) return;
+      if (event.cancelable) event.preventDefault();
+      if (Math.abs(plan.used) >= 0.5) scroller.scrollTop = plan.clamped;
+      pushPage(plan.rest);
+    }, { passive: false });
+
+    // 触摸续接：合成器按「手势累计位移」滚动内层，scrollTop 更新常滞后一帧。
+    // 若沿用 wheel 的「单次增量 + 当前 scrollTop」拆分，同一段手指位移会被算两次
+    // （合成器滚一次内层、JS 又按剩余量推一次页面），表现为转接瞬间多滑一段。
+    // 因此这里改成「手势累计位移」守恒核算：只在确认内层已到该方向边界后，
+    // 把 (手指累计位移 - 内层实际消耗) 的差额补给页面，总量守恒、不产生双份。
+    let chainTouch = null;
+    document.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 1) { chainTouch = null; return; }
+      const scroller = chainedScrollTarget(event.target);
+      if (!scroller) { chainTouch = null; return; }
+      const point = event.touches[0];
+      chainTouch = {
+        scroller,
+        x: point.clientX,
+        y: point.clientY,
+        max: Math.max(0, scroller.scrollHeight - scroller.clientHeight),
+        startTop: scroller.scrollTop,
+        acc: 0,      // 手势累计位移（正 = 手指上滑 = 内容向下滚）
+        pushed: 0    // 已转接给页面的累计量
+      };
+    }, { passive: true });
+    document.addEventListener('touchmove', (event) => {
+      const touch = chainTouch;
+      if (!touch || event.touches.length !== 1) return;
+      const point = event.touches[0];
+      const dy = touch.y - point.clientY;        // 正 = 内容向下滚
+      const dx = touch.x - point.clientX;
+      touch.x = point.clientX;
+      touch.y = point.clientY;
+      if (!dy) return;
+      if (Math.abs(dx) > Math.abs(dy)) return;   // 横向手势交给代码栏横滚
+      const scroller = touch.scroller;
+      if (touch.max <= 1) return;                // 内层不可纵向滚动 → 整页原生滚动
+      // 手势中途反向时重设基准，避免正负抵消后误推
+      if (touch.acc && (dy > 0) !== (touch.acc > 0)) {
+        touch.acc = 0;
+        touch.pushed = 0;
+        touch.startTop = scroller.scrollTop;
+      }
+      touch.acc += dy;
+      const top = scroller.scrollTop;
+      const atEdge = dy > 0 ? top >= touch.max - 1 : top <= 1;
+      if (!atEdge) return;                       // 内层还能走 → 完全交给原生滚动
+      // 内层已在边界：本次手势应给页面的累计量 = 手指累计位移 - 内层实际消耗
+      const innerUsed = top - touch.startTop;
+      const owed = touch.acc - innerUsed;
+      if (Math.abs(owed - touch.pushed) < 1) return;
+      if (event.cancelable) event.preventDefault();   // 阻止边界处的越界光晕
+      if (pushPage(owed - touch.pushed)) touch.pushed = owed;
+    }, { passive: false });
+    document.addEventListener('touchend', () => { chainTouch = null; }, { passive: true });
+    document.addEventListener('touchcancel', () => { chainTouch = null; }, { passive: true });
+
+    function activeSnapshot() {
+      return state.snapshots[state.activeIndex] || null;
+    }
+
+    function selectedNode() {
+      const snapshot = activeSnapshot();
+      if (!snapshot || state.selectedNodeId === null) return null;
+      return snapshot.nodeMap.get(state.selectedNodeId) || null;
+    }
+
+    function toast(message, type = 'success') {
+      const item = document.createElement('div');
+      item.className = `toast ${type}`;
+      item.textContent = message;
+      els.toastStack.appendChild(item);
+      window.setTimeout(() => item.remove(), 3200);
+    }
+
+    function setProgress(message) {
+      if (!message) {
+        els.progressBox.classList.add('hidden');
+        els.progressBox.textContent = '';
+        return;
+      }
+      els.progressBox.textContent = message;
+      els.progressBox.classList.remove('hidden');
+    }
+
+    function showErrors(errors) {
+      els.errorBox.replaceChildren();
+      if (!errors.length) {
+        els.errorBox.classList.add('hidden');
+        return;
+      }
+      const title = document.createElement('strong');
+      title.textContent = '有些文件未能载入：';
+      const list = document.createElement('ul');
+      errors.forEach((message) => {
+        const item = document.createElement('li');
+        item.textContent = message;
+        list.appendChild(item);
+      });
+      els.errorBox.append(title, list);
+      els.errorBox.classList.remove('hidden');
+    }
+
+    function openFilePicker() {
+      if (!state.loading) els.fileInput.click();
+    }
+
+    els.dropZone.addEventListener('click', openFilePicker);
+    els.dropZone.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openFilePicker();
+      }
+    });
+    els.addZipButton.addEventListener('click', openFilePicker);
+    els.sideAddButton.addEventListener('click', openFilePicker);
+    els.fileInput.addEventListener('change', () => {
+      const files = [...els.fileInput.files];
+      els.fileInput.value = '';
+      if (files.length) loadZipFiles(files);
+    });
+
+    ['dragenter', 'dragover'].forEach((type) => {
+      els.dropZone.addEventListener(type, (event) => {
+        event.preventDefault();
+        els.dropZone.classList.add('dragging');
+      });
+    });
+    ['dragleave', 'drop'].forEach((type) => {
+      els.dropZone.addEventListener(type, (event) => {
+        event.preventDefault();
+        els.dropZone.classList.remove('dragging');
+      });
+    });
+    els.dropZone.addEventListener('drop', (event) => {
+      const files = [...event.dataTransfer.files].filter((file) => file.name.toLowerCase().endsWith('.zip'));
+      if (files.length) loadZipFiles(files);
+      else toast('请拖入 GKD 导出的 ZIP 文件。', 'error');
+    });
+
+    function u16(view, offset) { return view.getUint16(offset, true); }
+    function u32(view, offset) { return view.getUint32(offset, true); }
+
+    function decodeFilename(bytes, utf8) {
+      if (utf8) return new TextDecoder('utf-8').decode(bytes);
+      try { return new TextDecoder('gb18030').decode(bytes); }
+      catch { return new TextDecoder('utf-8').decode(bytes); }
+    }
+
+    async function inflateRaw(bytes) {
+      if (typeof DecompressionStream === 'undefined') {
+        throw new Error('当前浏览器不支持本地 ZIP 解压，请使用最新版 Chrome、Edge 或 Firefox。');
+      }
+      let stream;
+      try {
+        stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      } catch {
+        throw new Error('当前浏览器不支持 ZIP 使用的 deflate-raw 解压格式，请升级浏览器。');
+      }
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    async function parseZip(file) {
+      if (file.size > MAX_ZIP_BYTES) throw new Error(`文件超过 ${Math.round(MAX_ZIP_BYTES / 1024 / 1024)} MB 安全上限`);
+      const buffer = await file.arrayBuffer();
+      const view = new DataView(buffer);
+      const bytes = new Uint8Array(buffer);
+      let eocd = -1;
+      const minOffset = Math.max(0, buffer.byteLength - 65557);
+      for (let i = buffer.byteLength - 22; i >= minOffset; i -= 1) {
+        if (u32(view, i) === 0x06054b50 && i + 22 + u16(view, i + 20) === buffer.byteLength) {
+          eocd = i;
+          break;
+        }
+      }
+      if (eocd < 0) throw new Error('不是有效的 ZIP，或 ZIP 使用了不支持的结构');
+
+      const diskNumber = u16(view, eocd + 4);
+      const centralDisk = u16(view, eocd + 6);
+      const entriesOnDisk = u16(view, eocd + 8);
+      const totalEntries = u16(view, eocd + 10);
+      const centralSize = u32(view, eocd + 12);
+      const centralOffset = u32(view, eocd + 16);
+      if (diskNumber !== 0 || centralDisk !== 0 || entriesOnDisk !== totalEntries) throw new Error('暂不支持分卷 ZIP 快照');
+      if (totalEntries === 0xffff || centralSize === 0xffffffff || centralOffset === 0xffffffff) {
+        throw new Error('暂不支持 ZIP64 快照');
+      }
+      if (totalEntries > MAX_ENTRIES) throw new Error(`ZIP 条目超过 ${MAX_ENTRIES} 个安全上限`);
+      if (centralOffset + centralSize > eocd) throw new Error('ZIP 中央目录越界');
+
+      const entries = [];
+      let offset = centralOffset;
+      let totalUncompressed = 0;
+      for (let i = 0; i < totalEntries; i += 1) {
+        if (offset + 46 > buffer.byteLength || u32(view, offset) !== 0x02014b50) throw new Error('ZIP 中央目录损坏');
+        const flags = u16(view, offset + 8);
+        const compression = u16(view, offset + 10);
+        const compressedSize = u32(view, offset + 20);
+        const uncompressedSize = u32(view, offset + 24);
+        const nameLength = u16(view, offset + 28);
+        const extraLength = u16(view, offset + 30);
+        const commentLength = u16(view, offset + 32);
+        const localOffset = u32(view, offset + 42);
+        const nameStart = offset + 46;
+        const nameEnd = nameStart + nameLength;
+        if (nameEnd > buffer.byteLength) throw new Error('ZIP 文件名越界');
+        const name = decodeFilename(bytes.slice(nameStart, nameEnd), Boolean(flags & 0x0800)).replaceAll('\\', '/');
+        if (uncompressedSize > MAX_ENTRY_BYTES) throw new Error(`ZIP 单个条目超过 ${Math.round(MAX_ENTRY_BYTES / 1024 / 1024)} MB 安全上限：${name}`);
+        totalUncompressed += uncompressedSize;
+        if (totalUncompressed > MAX_UNCOMPRESSED_BYTES) throw new Error('ZIP 解压后体积超过安全上限');
+
+        if (!name.endsWith('/')) {
+          entries.push({
+            name, flags, compression, compressedSize, uncompressedSize, localOffset,
+            async read() {
+              if (flags & 0x0001) throw new Error(`不支持加密条目：${name}`);
+              if (localOffset + 30 > buffer.byteLength || u32(view, localOffset) !== 0x04034b50) throw new Error(`ZIP 本地条目损坏：${name}`);
+              const localNameLength = u16(view, localOffset + 26);
+              const localExtraLength = u16(view, localOffset + 28);
+              const dataStart = localOffset + 30 + localNameLength + localExtraLength;
+              const dataEnd = dataStart + compressedSize;
+              if (dataEnd > buffer.byteLength) throw new Error(`ZIP 数据越界：${name}`);
+              const compressed = bytes.slice(dataStart, dataEnd);
+              let result;
+              if (compression === 0) result = compressed;
+              else if (compression === 8) result = await inflateRaw(compressed);
+              else throw new Error(`不支持压缩算法 ${compression}：${name}`);
+              if (uncompressedSize && result.byteLength !== uncompressedSize) throw new Error(`解压尺寸不符：${name}`);
+              return result;
+            },
+          });
+        }
+        offset = nameEnd + extraLength + commentLength;
+      }
+      return entries;
+    }
+
+    function extension(name) {
+      const clean = name.split('/').pop() || '';
+      const index = clean.lastIndexOf('.');
+      return index >= 0 ? clean.slice(index + 1).toLowerCase() : '';
+    }
+
+    function basenameWithoutExtension(name) {
+      const clean = name.split('/').pop() || '';
+      const index = clean.lastIndexOf('.');
+      return (index >= 0 ? clean.slice(0, index) : clean).toLowerCase();
+    }
+
+    function sniffImageMime(bytes, name = '') {
+      const at = (...values) => values.every((value, index) => bytes[index] === value);
+      if (bytes.length >= 8 && at(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
+      if (bytes.length >= 3 && at(0xff, 0xd8, 0xff)) return 'image/jpeg';
+      if (bytes.length >= 12 && at(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+      if (bytes.length >= 6 && at(0x47, 0x49, 0x46, 0x38) && (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61) return 'image/gif';
+      if (bytes.length >= 2 && at(0x42, 0x4d)) return 'image/bmp';
+      const ext = extension(name);
+      if (ext === 'png') return 'image/png';
+      if (ext === 'webp') return 'image/webp';
+      if (ext === 'gif') return 'image/gif';
+      if (ext === 'bmp') return 'image/bmp';
+      if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+      return '';
+    }
+
+    function finiteNumber(value, fallback = 0) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : fallback;
+    }
+
+    function normalizeSnapshot(raw) {
+      if (!raw || typeof raw !== 'object' || !Array.isArray(raw.nodes)) return null;
+      const appId = typeof raw.appId === 'string' && raw.appId ? raw.appId : (raw.appInfo?.id || 'unknown.app');
+      const appInfo = raw.appInfo && typeof raw.appInfo === 'object'
+        ? { ...raw.appInfo, id: raw.appInfo.id || appId, name: raw.appInfo.name || raw.appName || appId }
+        : {
+            id: appId,
+            name: raw.appName || appId,
+            versionCode: finiteNumber(raw.appVersionCode),
+            versionName: raw.appVersionName ?? null,
+            isSystem: false,
+            mtime: 0,
+            hidden: false,
+            userId: 0,
+          };
+      const legacyDevice = raw.device && typeof raw.device === 'object' ? raw.device : raw;
+      const gkdAppInfo = raw.gkdAppInfo && typeof raw.gkdAppInfo === 'object'
+        ? raw.gkdAppInfo
+        : {
+            id: 'li.songe.gkd',
+            name: 'GKD',
+            versionCode: finiteNumber(legacyDevice.gkdVersionCode),
+            versionName: legacyDevice.gkdVersionName ?? null,
+          };
+
+      const nodes = raw.nodes
+        .filter((node) => node && typeof node === 'object' && node.attr && Number.isFinite(Number(node.id)))
+        .map((node) => {
+          const source = node.attr || {};
+          const left = finiteNumber(source.left);
+          const top = finiteNumber(source.top);
+          const right = finiteNumber(source.right, left);
+          const bottom = finiteNumber(source.bottom, top);
+          const fullId = source.id ?? null;
+          const idPrefix = `${appId}:id/`;
+          const derivedVid = typeof fullId === 'string' && fullId.startsWith(idPrefix) ? fullId.slice(idPrefix.length) : null;
+          return {
+            ...node,
+            id: finiteNumber(node.id),
+            pid: node.pid === null || node.pid === undefined ? -1 : finiteNumber(node.pid, -1),
+            idQf: node.idQf ?? node.quickFind ?? null,
+            textQf: node.textQf ?? node.quickFind ?? null,
+            attr: {
+              ...source,
+              id: fullId,
+              vid: source.vid ?? derivedVid,
+              name: source.name ?? null,
+              text: source.text ?? null,
+              desc: source.desc ?? null,
+              clickable: Boolean(source.clickable ?? source.isClickable ?? false),
+              focusable: Boolean(source.focusable ?? false),
+              checkable: Boolean(source.checkable ?? false),
+              checked: source.checked ?? null,
+              editable: Boolean(source.editable ?? false),
+              longClickable: Boolean(source.longClickable ?? false),
+              visibleToUser: source.visibleToUser !== false,
+              left, top, right, bottom,
+              width: finiteNumber(source.width, right - left),
+              height: finiteNumber(source.height, bottom - top),
+              childCount: Number.isFinite(Number(source.childCount)) ? Number(source.childCount) : null,
+              index: Number.isFinite(Number(source.index)) ? Number(source.index) : null,
+              depth: Number.isFinite(Number(source.depth)) ? Number(source.depth) : null,
+            },
+          };
+        });
+
+      const nodeMap = new Map(nodes.map((node) => [Number(node.id), node]));
+      const siblingIndexes = new Map();
+      const childCounts = new Map();
+      nodes.forEach((node) => childCounts.set(Number(node.pid), (childCounts.get(Number(node.pid)) || 0) + 1));
+      const depthCache = new Map();
+      const resolveDepth = (node, visiting = new Set()) => {
+        if (Number.isFinite(node.attr.depth)) return node.attr.depth;
+        if (depthCache.has(node.id)) return depthCache.get(node.id);
+        if (visiting.has(node.id)) return 0;
+        visiting.add(node.id);
+        const parent = nodeMap.get(Number(node.pid));
+        const depth = parent ? resolveDepth(parent, visiting) + 1 : 0;
+        depthCache.set(node.id, depth);
+        visiting.delete(node.id);
+        return depth;
+      };
+      nodes.forEach((node) => {
+        if (!Number.isFinite(node.attr.index)) {
+          const pid = Number(node.pid);
+          node.attr.index = siblingIndexes.get(pid) || 0;
+          siblingIndexes.set(pid, node.attr.index + 1);
+        }
+        if (!Number.isFinite(node.attr.depth)) node.attr.depth = resolveDepth(node);
+        if (!Number.isFinite(node.attr.childCount) || node.attr.childCount < 0) node.attr.childCount = childCounts.get(Number(node.id)) || 0;
+      });
+
+      const inferredWidth = Math.max(1, ...nodes.map((node) => finiteNumber(node.attr.right)));
+      const inferredHeight = Math.max(1, ...nodes.map((node) => finiteNumber(node.attr.bottom)));
+      const screenWidth = finiteNumber(raw.screenWidth, inferredWidth) || inferredWidth;
+      const screenHeight = finiteNumber(raw.screenHeight, inferredHeight) || inferredHeight;
+      return {
+        ...raw,
+        appId,
+        activityId: typeof raw.activityId === 'string' && raw.activityId ? raw.activityId : null,
+        appInfo,
+        gkdAppInfo,
+        device: raw.device && typeof raw.device === 'object' ? raw.device : legacyDevice,
+        screenWidth,
+        screenHeight,
+        isLandscape: typeof raw.isLandscape === 'boolean' ? raw.isLandscape : screenWidth > screenHeight,
+        nodes,
+      };
+    }
+
+    async function snapshotsFromArchive(blob, sourceName, depth = 0) {
+      if (depth > MAX_NESTED_ZIP_DEPTH) throw new Error(`内嵌 ZIP 超过 ${MAX_NESTED_ZIP_DEPTH} 层`);
+      const entries = await parseZip(blob);
+      const jsonEntries = entries
+        .filter((entry) => extension(entry.name) === 'json')
+        .sort((a, b) => Number(a.name.toLowerCase().endsWith('.min.json')) - Number(b.name.toLowerCase().endsWith('.min.json')));
+      const imageEntries = entries.filter((entry) => IMAGE_EXTENSIONS.includes(extension(entry.name)));
+      const nestedEntries = entries.filter((entry) => extension(entry.name) === 'zip');
+      const snapshots = [];
+
+      for (const jsonEntry of jsonEntries) {
+        let raw;
+        try {
+          const jsonBytes = await jsonEntry.read();
+          const text = new TextDecoder('utf-8').decode(jsonBytes).replace(/^\uFEFF/, '');
+          raw = JSON.parse(text);
+        } catch { continue; }
+        const data = normalizeSnapshot(raw);
+        if (!data) continue;
+
+        const stem = basenameWithoutExtension(jsonEntry.name);
+        const imageEntry = imageEntries.find((entry) => basenameWithoutExtension(entry.name) === stem)
+          || (jsonEntries.filter((entry) => !entry.name.toLowerCase().endsWith('.min.json')).length === 1 ? imageEntries[0] : null);
+        if (!imageEntry) continue;
+        const imageBytes = await imageEntry.read();
+        const mime = sniffImageMime(imageBytes, imageEntry.name);
+        if (!mime) continue;
+        const imageUrl = URL.createObjectURL(new Blob([imageBytes], { type: mime }));
+        const nodes = data.nodes;
+        const nodeMap = new Map(nodes.map((node) => [Number(node.id), node]));
+        snapshots.push({
+          sourceFile: sourceName,
+          jsonName: jsonEntry.name,
+          imageName: imageEntry.name,
+          imageUrl,
+          data,
+          nodes,
+          nodeMap,
+          width: Number(data.screenWidth) || 1,
+          height: Number(data.screenHeight) || 1,
+        });
+      }
+
+      if (depth < MAX_NESTED_ZIP_DEPTH) {
+        for (const nestedEntry of nestedEntries) {
+          try {
+            const nestedBytes = await nestedEntry.read();
+            const nestedBlob = new Blob([nestedBytes], { type: 'application/zip' });
+            snapshots.push(...await snapshotsFromArchive(nestedBlob, `${sourceName} › ${nestedEntry.name}`, depth + 1));
+          } catch {
+            // 单个内嵌 ZIP 损坏时继续读取同一批次中的其它快照。
+          }
+        }
+      }
+      return snapshots;
+    }
+
+    async function snapshotsFromZip(file) {
+      const snapshots = await snapshotsFromArchive(file, file.name);
+      if (!snapshots.length) throw new Error('ZIP 中没有可配对的 GKD 快照 JSON 与截图（也未发现可用的内嵌快照 ZIP）');
+      return snapshots;
+    }
+
+    async function loadZipFiles(files) {
+      if (state.loading) return;
+      state.loading = true;
+      showErrors([]);
+      const errors = [];
+      let loaded = 0;
+      try {
+        for (let i = 0; i < files.length; i += 1) {
+          const file = files[i];
+          setProgress(`正在解析 ${i + 1}/${files.length}：${file.name}`);
+          try {
+            const snapshots = await snapshotsFromZip(file);
+            state.snapshots.push(...snapshots);
+            loaded += snapshots.length;
+          } catch (error) {
+            errors.push(`${file.name}：${error.message || '解析失败'}`);
+          }
+        }
+      } finally {
+        state.loading = false;
+        setProgress('');
+      }
+      showErrors(errors);
+      if (state.snapshots.length) {
+        const firstLoad = els.workspace.classList.contains('hidden');
+        els.hero.classList.add('hidden');
+        els.workspace.classList.remove('hidden');
+        // [布局固定版] 工作区首次显示后再复测一次基准，保证首屏快照宽度就是最终宽度
+        requestAnimationFrame(() => syncFrameBase(true));
+        els.addZipButton.classList.remove('hidden');
+        els.clearButton.classList.remove('hidden');
+        renderSnapshotList();
+        if (state.activeIndex < 0) activateSnapshot(0);
+        else renderSnapshotList();
+        if (firstLoad) switchPane('code');
+        toast(`已载入 ${loaded} 个快照${errors.length ? `，${errors.length} 个文件失败` : ''}。`, errors.length ? 'error' : 'success');
+      }
+    }
+
+    function clearSnapshots() {
+      state.snapshots.forEach((snapshot) => URL.revokeObjectURL(snapshot.imageUrl));
+      state.snapshots = [];
+      state.activeIndex = -1;
+      state.selectedNodeId = null;
+      state.candidateIds = [];
+      state.clickPoint = null;
+      state.selectorOptions = [];
+      state.code = '';
+      state.nameDirty = false;
+      state.descDirty = false;
+      els.workspace.classList.add('hidden');
+      els.hero.classList.remove('hidden');
+      els.addZipButton.classList.add('hidden');
+      els.clearButton.classList.add('hidden');
+      showErrors([]);
+      resetInspector();
+    }
+    els.clearButton.addEventListener('click', clearSnapshots);
+
+    function renderSnapshotList() {
+      els.snapshotList.replaceChildren();
+      els.snapshotCount.textContent = `${state.snapshots.length} 个界面`;
+      state.snapshots.forEach((snapshot, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `snapshot-card${index === state.activeIndex ? ' active' : ''}`;
+        button.addEventListener('click', () => activateSnapshot(index));
+
+        const thumb = document.createElement('div');
+        thumb.className = 'snapshot-thumb';
+        const image = document.createElement('img');
+        image.src = snapshot.imageUrl;
+        image.alt = `${snapshot.data.appInfo?.name || snapshot.data.appId || '应用'} 快照缩略图`;
+        const badge = document.createElement('span');
+        badge.className = 'snapshot-index';
+        badge.textContent = String(index + 1).padStart(2, '0');
+        thumb.append(image, badge);
+
+        const name = document.createElement('p');
+        name.className = 'snapshot-name';
+        name.textContent = snapshot.data.appInfo?.name || snapshot.data.appId || '未知应用';
+        const meta = document.createElement('p');
+        meta.className = 'snapshot-meta';
+        const activity = snapshot.data.activityId ? shortActivity(snapshot.data.activityId) : 'activityId 未记录';
+        meta.textContent = `${activity} · ${snapshot.nodes.length} 节点`;
+        button.append(thumb, name, meta);
+        els.snapshotList.appendChild(button);
+      });
+    }
+
+    function shortActivity(value) {
+      if (!value) return '';
+      const parts = value.split('.');
+      return parts[parts.length - 1] || value;
+    }
+
+    function activateSnapshot(index) {
+      if (!state.snapshots[index]) return;
+      state.activeIndex = index;
+      state.selectedNodeId = null;
+      state.candidateIds = [];
+      state.clickPoint = null;
+      state.selectorOptions = [];
+      state.selectedOption = 0;
+      state.zoom = 1;
+      state.nameDirty = false;
+      state.descDirty = false;
+      els.snapshotUrlInput.value = '';
+      renderSnapshotList();
+      renderViewer();
+      resetInspector();
+      updateCode();
+    }
+
+    // 把上方快照的渲染宽度固定为像素基准：下方区块切换、候选/参数展开、
+    // 软键盘弹出、滚动条出现/消失都不会改变它的尺寸，因此不会被「连带缩放」。
+    // 仅窗口真实尺寸变化时重算；用户主动点缩放按钮只改 --zoom，不动基准。
+    let frameBasePx = 0;
+    // [布局固定版] 基准只跟「快照视口自身的可用宽度」走，且只在窗口真实变宽变窄时更新。
+    // 交付后即使下方 Tab 高度变化、候选/参数展开、软键盘弹出、代码变长，都不会触发重算，
+    // 因此快照框与三个 Tab 按钮的尺寸在整个使用过程中保持恒定。
+    function measureFrameBase() {
+      const viewport = els.imageViewport;
+      if (!viewport || viewport.offsetParent === null) return 0;
+      const style = getComputedStyle(viewport);
+      const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+      const available = viewport.clientWidth - padding;
+      if (!(available > 0)) return 0;
+      return Math.max(280, Math.round(available));
+    }
+    function syncFrameBase(force) {
+      const base = measureFrameBase();
+      if (!base) return;
+      if (!force && Math.abs(base - frameBasePx) < 2) return;
+      frameBasePx = base;
+      lastViewportWidth = els.imageViewport.clientWidth;
+      els.imageViewport.style.setProperty('--frame-base', `${base}px`);
+    }
+    let lastViewportWidth = 0;
+    // 只有「真实可用宽度」变了才重算：软键盘弹出、地址栏收起等只改高度的事件一律忽略
+    window.addEventListener('resize', () => {
+      const width = els.imageViewport.clientWidth;
+      if (Math.abs(width - lastViewportWidth) < 1) return;
+      lastViewportWidth = width;
+      syncFrameBase(true);
+    });
+    // 快照图真正解码完成后可用宽度才稳定，此时再复测一次（只改基准像素，不改缩放比例）
+    els.snapshotImage.addEventListener('load', () => syncFrameBase(true));
+    // 浏览器主动缩放/窗口改变时视口宽度会变，据此跟随；内容导致的宽度变化不会发生（轨道已固定）
+    if (typeof ResizeObserver === 'function') {
+      let observedWidth = 0;
+      const viewportObserver = new ResizeObserver(() => {
+        const width = els.imageViewport.getBoundingClientRect().width;
+        if (Math.abs(width - observedWidth) < 1) return;
+        observedWidth = width;
+        syncFrameBase(false);
+      });
+      viewportObserver.observe(els.imageViewport);
+    }
+
+    function renderViewer() {
+      const snapshot = activeSnapshot();
+      if (!snapshot) return;
+      const appName = snapshot.data.appInfo?.name || snapshot.data.appId || '未知应用';
+      els.appName.textContent = appName;
+      els.appId.textContent = snapshot.data.appId || '未记录 appId';
+      els.appAvatar.textContent = [...appName][0] || '?';
+      els.snapshotImage.src = snapshot.imageUrl;
+      els.snapshotImage.alt = `${appName} GKD 快照`;
+      els.imageFrame.classList.remove('hidden');
+      els.viewerHint.classList.add('hidden');
+      els.imageFrame.style.setProperty('--zoom', state.zoom);
+      syncFrameBase(true);
+      requestAnimationFrame(() => syncFrameBase(true));
+      els.zoomValue.textContent = `${Math.round(state.zoom * 100)}%`;
+      els.nodeOverlay.setAttribute('viewBox', `0 0 ${snapshot.width} ${snapshot.height}`);
+      els.nodeOverlay.setAttribute('preserveAspectRatio', 'none');
+      renderViewerStatus();
+      renderOverlay();
+      els.selectionArea.classList.add('hidden');
+    }
+
+    function renderViewerStatus() {
+      const snapshot = activeSnapshot();
+      if (!snapshot) return;
+      els.viewerStatus.replaceChildren();
+      const pairs = [
+        ['Activity', snapshot.data.activityId || '未记录'],
+        ['尺寸', `${snapshot.width} × ${snapshot.height}`],
+        ['节点', String(snapshot.nodes.length)],
+        ['GKD', snapshot.data.gkdAppInfo?.versionName || '未知'],
+      ];
+      pairs.forEach(([label, value]) => {
+        const chip = document.createElement('span');
+        chip.className = 'status-chip';
+        const strong = document.createElement('strong');
+        strong.textContent = label;
+        chip.append(strong, document.createTextNode(value));
+        chip.title = value;
+        els.viewerStatus.appendChild(chip);
+      });
+    }
+
+    function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+    function setZoom(value) {
+      state.zoom = clamp(Math.round(value * 10) / 10, .5, 2.5);
+      els.imageFrame.style.setProperty('--zoom', state.zoom);
+      els.zoomValue.textContent = `${Math.round(state.zoom * 100)}%`;
+    }
+    els.zoomOut.addEventListener('click', () => setZoom(state.zoom - .2));
+    els.zoomIn.addEventListener('click', () => setZoom(state.zoom + .2));
+    els.zoomReset.addEventListener('click', () => setZoom(1));
+
+    function numberAttr(node, key) {
+      const value = Number(node?.attr?.[key]);
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function nodeArea(node) {
+      return Math.max(0, numberAttr(node, 'width')) * Math.max(0, numberAttr(node, 'height'));
+    }
+
+    function stableLabel(node) {
+      const attr = node.attr || {};
+      return cleanText(attr.text) || cleanText(attr.desc) || attr.vid || (attr.id ? attr.id.split('/').pop() : '') || shortClass(attr.name);
+    }
+
+    function cleanText(value) {
+      if (typeof value !== 'string') return '';
+      return value.trim();
+    }
+
+    function shortClass(value) {
+      if (!value) return '*';
+      const parts = String(value).split('.');
+      return parts[parts.length - 1] || String(value);
+    }
+
+    function nodeHitScore(node) {
+      const attr = node.attr || {};
+      let score = Number(attr.depth || 0) * 2;
+      if (attr.id) score += 32;
+      if (attr.vid) score += 18;
+      if (cleanText(attr.text)) score += 29;
+      if (cleanText(attr.desc)) score += 24;
+      if (attr.clickable) score += 10;
+      if (attr.visibleToUser !== false) score += 5;
+      const area = Math.max(1, nodeArea(node));
+      score -= Math.log10(area) * 2;
+      return score;
+    }
+
+    function nodesAtPoint(snapshot, x, y) {
+      return snapshot.nodes
+        .filter((node) => {
+          const attr = node.attr || {};
+          if (attr.visibleToUser === false) return false;
+          const left = numberAttr(node, 'left');
+          const top = numberAttr(node, 'top');
+          const right = numberAttr(node, 'right');
+          const bottom = numberAttr(node, 'bottom');
+          return right > left && bottom > top && x >= left && x <= right && y >= top && y <= bottom;
+        })
+        .sort((a, b) => nodeHitScore(b) - nodeHitScore(a) || nodeArea(a) - nodeArea(b))
+        .slice(0, 16);
+    }
+
+    els.imageFrame.addEventListener('click', (event) => {
+      const snapshot = activeSnapshot();
+      if (!snapshot) return;
+      const rect = els.imageFrame.getBoundingClientRect();
+      const x = clamp((event.clientX - rect.left) / rect.width * snapshot.width, 0, snapshot.width);
+      const y = clamp((event.clientY - rect.top) / rect.height * snapshot.height, 0, snapshot.height);
+      const hits = nodesAtPoint(snapshot, x, y);
+      state.clickPoint = { x, y };
+      state.candidateIds = hits.map((node) => Number(node.id));
+      if (!hits.length) {
+        state.selectedNodeId = null;
+        renderOverlay();
+        resetInspector();
+        toast('这个位置没有可见的无障碍节点。', 'error');
+        return;
+      }
+      selectNode(Number(hits[0].id), true);
+    });
+
+    function selectNode(nodeId, resetNames = false) {
+      const snapshot = activeSnapshot();
+      const node = snapshot?.nodeMap.get(nodeId);
+      if (!node) return;
+      state.selectedNodeId = nodeId;
+      state.selectorOptions = generateSelectorOptions(node, snapshot);
+      state.selectedOption = 0;
+      if (resetNames || !state.nameDirty || !state.descDirty) {
+        const label = stableLabel(node).slice(0, 42) || '目标控件';
+        if (!state.nameDirty) els.ruleNameInput.value = `自动点击「${label}」`;
+        if (!state.descDirty) els.ruleDescInput.value = `点击「${label}」`;
+      }
+      const first = state.selectorOptions[0];
+      els.selectorInput.value = first?.selector || '';
+      els.fastQueryToggle.checked = Boolean(first?.fastQuery);
+      const activity = snapshot.data.activityId || '';
+      els.activityToggle.disabled = !activity;
+      els.activityToggle.checked = Boolean(activity);
+      els.activityHelp.textContent = activity || '当前快照未提供 activityId，将自动省略';
+      renderOverlay();
+      renderCandidates();
+      renderInspector();
+      updateCode();
+    }
+
+    function renderOverlay() {
+      const snapshot = activeSnapshot();
+      els.nodeOverlay.replaceChildren();
+      if (!snapshot) return;
+      const selected = selectedNode();
+      const visibleCandidates = state.candidateIds
+        .map((id) => snapshot.nodeMap.get(id))
+        .filter(Boolean)
+        .slice(0, 8)
+        .reverse();
+      visibleCandidates.forEach((node) => {
+        if (selected && Number(node.id) === Number(selected.id)) return;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('class', 'candidate');
+        rect.setAttribute('x', numberAttr(node, 'left'));
+        rect.setAttribute('y', numberAttr(node, 'top'));
+        rect.setAttribute('width', Math.max(1, numberAttr(node, 'width')));
+        rect.setAttribute('height', Math.max(1, numberAttr(node, 'height')));
+        els.nodeOverlay.appendChild(rect);
+      });
+      if (selected) {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('class', 'selected');
+        rect.setAttribute('x', numberAttr(selected, 'left'));
+        rect.setAttribute('y', numberAttr(selected, 'top'));
+        rect.setAttribute('width', Math.max(1, numberAttr(selected, 'width')));
+        rect.setAttribute('height', Math.max(1, numberAttr(selected, 'height')));
+        els.nodeOverlay.appendChild(rect);
+      }
+      if (state.clickPoint) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('class', 'click-point');
+        circle.setAttribute('cx', state.clickPoint.x);
+        circle.setAttribute('cy', state.clickPoint.y);
+        circle.setAttribute('r', Math.max(8, snapshot.width * .006));
+        els.nodeOverlay.appendChild(circle);
+      }
+    }
+
+    function renderCandidates() {
+      const snapshot = activeSnapshot();
+      if (!snapshot || !state.candidateIds.length) {
+        els.selectionArea.classList.add('hidden');
+        els.candidatePlaceholder.classList.remove('hidden');
+        return;
+      }
+      els.selectionArea.classList.remove('hidden');
+      els.candidatePlaceholder.classList.add('hidden');
+      els.clickCoordinates.textContent = state.clickPoint
+        ? `点击坐标 x=${Math.round(state.clickPoint.x)}, y=${Math.round(state.clickPoint.y)} · 请选择真正要操作的节点`
+        : '请选择目标节点';
+      els.candidateCount.textContent = `${state.candidateIds.length} 个`;
+      els.candidateList.replaceChildren();
+      state.candidateIds.slice(0, 12).forEach((id) => {
+        const node = snapshot.nodeMap.get(id);
+        if (!node) return;
+        const attr = node.attr || {};
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `candidate-button${id === state.selectedNodeId ? ' active' : ''}`;
+        button.addEventListener('click', () => selectNode(id));
+        const top = document.createElement('div');
+        top.className = 'candidate-top';
+        const className = document.createElement('span');
+        className.className = 'candidate-class';
+        className.textContent = `${shortClass(attr.name)} #${id}`;
+        const depth = document.createElement('span');
+        depth.className = 'candidate-depth';
+        depth.textContent = `d${attr.depth ?? '?'}`;
+        top.append(className, depth);
+        const label = document.createElement('p');
+        label.className = 'candidate-label';
+        label.textContent = stableLabel(node) || `${attr.width || 0} × ${attr.height || 0}`;
+        button.append(top, label);
+        els.candidateList.appendChild(button);
+      });
+    }
+
+    function selectorStringValue(value) {
+      return [...String(value)].map((char) => {
+        if (char === '\\') return '\\\\';
+        if (char === '"') return '\\"';
+        if (char === '\b') return '\\b';
+        if (char === '\t') return '\\t';
+        if (char === '\n') return '\\n';
+        if (char === '\r') return '\\r';
+        const code = char.codePointAt(0);
+        if (code < 0x20 || code === 0x7f) return `\\u${code.toString(16).padStart(4, '0')}`;
+        return char;
+      }).join('');
+    }
+
+    function attrSelector(key, value) {
+      if (typeof value === 'boolean' || typeof value === 'number') return `[${key}=${value}]`;
+      return `[${key}="${selectorStringValue(value)}"]`;
+    }
+
+    function classSelector(node) {
+      const fullName = node?.attr?.name;
+      const name = shortClass(fullName);
+      if (name && name !== '*' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return name;
+      return fullName ? attrSelector('name', fullName) : '*';
+    }
+
+    function classPredicate(node) {
+      const fullName = node?.attr?.name;
+      const name = shortClass(fullName);
+      if (name && name !== '*' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        return (candidate) => {
+          const candidateName = candidate?.attr?.name;
+          return candidateName === name || (typeof candidateName === 'string' && candidateName.endsWith(`.${name}`));
+        };
+      }
+      return (candidate) => candidate?.attr?.name === fullName;
+    }
+
+    function optionCount(snapshot, predicate) {
+      try { return snapshot.nodes.filter(predicate).length; }
+      catch { return 0; }
+    }
+
+    function generateSelectorOptions(node, snapshot) {
+      const attr = node.attr || {};
+      const text = typeof attr.text === 'string' && attr.text.length ? attr.text : '';
+      const desc = typeof attr.desc === 'string' && attr.desc.length ? attr.desc : '';
+      const cls = classSelector(node);
+      const idFast = Boolean(node.idQf || node.quickFind);
+      const textFast = Boolean(node.textQf || node.quickFind);
+      const options = [];
+      const seen = new Set();
+      const add = (name, selector, predicate, score, fastQuery = false, warning = '') => {
+        if (!selector || seen.has(selector)) return;
+        seen.add(selector);
+        const count = optionCount(snapshot, predicate);
+        const uniqueBoost = count === 1 ? 1000 : count > 0 ? Math.max(0, 100 - count * 4) : -500;
+        options.push({ name, selector, count, score: score + uniqueBoost, fastQuery, warning });
+      };
+
+      const by = (key, value) => (candidate) => candidate?.attr?.[key] === value;
+      const and = (...predicates) => (candidate) => predicates.every((predicate) => predicate(candidate));
+      const sameClass = classPredicate(node);
+
+      if (attr.id && text) {
+        add('ID + 文本', `${attrSelector('id', attr.id)}${attrSelector('text', text)}`, and(by('id', attr.id), by('text', attr.text)), 132, idFast);
+      }
+      if (attr.vid && text) {
+        add('短 ID + 文本', `${attrSelector('vid', attr.vid)}${attrSelector('text', text)}`, and(by('vid', attr.vid), by('text', attr.text)), 129, idFast);
+      }
+      if (attr.id && desc) {
+        add('ID + 描述', `${attrSelector('id', attr.id)}${attrSelector('desc', desc)}`, and(by('id', attr.id), by('desc', attr.desc)), 126, idFast);
+      }
+      if (attr.id) add('完整 ID', attrSelector('id', attr.id), by('id', attr.id), 122, idFast);
+      if (attr.vid) add('短 ID', attrSelector('vid', attr.vid), by('vid', attr.vid), 119, idFast);
+      if (text) {
+        add('控件类型 + 文本', `${cls}${attrSelector('text', text)}`, and(sameClass, by('text', attr.text)), text.length <= 42 ? 112 : 91, false, text.length > 42 ? '长文本可能随内容变化' : '');
+        add('文本 + 可见', `${attrSelector('text', text)}[visibleToUser=true]`, and(by('text', attr.text), by('visibleToUser', true)), text.length <= 42 ? 108 : 88, textFast);
+        add('精确文本', attrSelector('text', text), by('text', attr.text), text.length <= 42 ? 103 : 84, textFast);
+      }
+      if (desc) {
+        add('控件类型 + 描述', `${cls}${attrSelector('desc', desc)}`, and(sameClass, by('desc', attr.desc)), desc.length <= 55 ? 105 : 86, false);
+        add('无障碍描述', attrSelector('desc', desc), by('desc', attr.desc), desc.length <= 55 ? 99 : 82, false);
+      }
+      if (text && typeof attr.clickable === 'boolean') {
+        add('文本 + 点击属性', `${cls}${attrSelector('text', text)}${attrSelector('clickable', attr.clickable)}`, and(sameClass, by('text', attr.text), by('clickable', attr.clickable)), 96, false);
+      }
+
+      let childSegment;
+      let childPredicate;
+      let childFast = false;
+      if (attr.id && text) {
+        childSegment = `${attrSelector('id', attr.id)}${attrSelector('text', text)}`;
+        childPredicate = and(by('id', attr.id), by('text', attr.text));
+        childFast = idFast;
+      } else if (attr.id) {
+        childSegment = attrSelector('id', attr.id);
+        childPredicate = by('id', attr.id);
+        childFast = idFast;
+      } else if (attr.vid) {
+        childSegment = attrSelector('vid', attr.vid);
+        childPredicate = by('vid', attr.vid);
+        childFast = idFast;
+      } else if (text) {
+        childSegment = `${cls}${attrSelector('text', text)}`;
+        childPredicate = and(sameClass, by('text', attr.text));
+      } else if (desc) {
+        childSegment = `${cls}${attrSelector('desc', desc)}`;
+        childPredicate = and(sameClass, by('desc', attr.desc));
+      } else {
+        childSegment = `${cls}${attrSelector('index', Number(attr.index) || 0)}`;
+        childPredicate = and(sameClass, by('index', attr.index));
+      }
+
+      let ancestor = snapshot.nodeMap.get(Number(node.pid));
+      let depth = 0;
+      let pathPredicate = childPredicate;
+      let pathSelector = childSegment;
+      while (ancestor && depth < 3) {
+        depth += 1;
+        const ancestorAttr = ancestor.attr || {};
+        const ancestorText = typeof ancestorAttr.text === 'string' && ancestorAttr.text.length ? ancestorAttr.text : '';
+        const ancestorDesc = typeof ancestorAttr.desc === 'string' && ancestorAttr.desc.length ? ancestorAttr.desc : '';
+        let segment = classSelector(ancestor);
+        let ownPredicate = classPredicate(ancestor);
+        if (ancestorAttr.id) {
+          segment = attrSelector('id', ancestorAttr.id);
+          ownPredicate = by('id', ancestorAttr.id);
+        } else if (ancestorAttr.vid) {
+          segment = attrSelector('vid', ancestorAttr.vid);
+          ownPredicate = by('vid', ancestorAttr.vid);
+        } else if (ancestorText) {
+          segment += attrSelector('text', ancestorText);
+          ownPredicate = and(ownPredicate, by('text', ancestorAttr.text));
+        } else if (ancestorDesc) {
+          segment += attrSelector('desc', ancestorDesc);
+          ownPredicate = and(ownPredicate, by('desc', ancestorAttr.desc));
+        } else {
+          segment += attrSelector('index', Number(ancestorAttr.index) || 0);
+          ownPredicate = and(ownPredicate, by('index', ancestorAttr.index));
+        }
+        const previousPredicate = pathPredicate;
+        const steps = depth;
+        const ancestorPredicate = ownPredicate;
+        pathPredicate = (candidate) => {
+          if (!previousPredicate(candidate)) return false;
+          let current = candidate;
+          for (let step = 0; step < steps; step += 1) current = snapshot.nodeMap.get(Number(current?.pid));
+          return Boolean(current && ancestorPredicate(current));
+        };
+        pathSelector = `${segment} > ${pathSelector}`;
+        add(`父级路径 × ${depth}`, pathSelector, pathPredicate, 78 - depth * 7, childFast, '层级路径在应用改版后可能变化');
+        ancestor = snapshot.nodeMap.get(Number(ancestor.pid));
+      }
+
+      const boundsSelector = `${cls}${attrSelector('left', Number(attr.left) || 0)}${attrSelector('top', Number(attr.top) || 0)}${attrSelector('right', Number(attr.right) || 0)}${attrSelector('bottom', Number(attr.bottom) || 0)}`;
+      add('坐标边界（兜底）', boundsSelector, and(sameClass, by('left', attr.left), by('top', attr.top), by('right', attr.right), by('bottom', attr.bottom)), 15, false, '仅适合同设备与同布局，优先选择其他方案');
+
+      options.sort((a, b) => b.score - a.score || a.selector.length - b.selector.length);
+      return options.slice(0, 8);
+    }
+
+    function resetInspector() {
+      els.emptyInspector.classList.remove('hidden');
+      els.nodeSection.classList.add('hidden');
+      els.selectorSection.classList.add('hidden');
+      els.settingsSection.classList.add('hidden');
+      els.selectionArea.classList.add('hidden');
+      els.candidatePlaceholder.classList.remove('hidden');
+      els.codePreview.classList.add('hidden');
+      els.outputPlaceholder.classList.remove('hidden');
+      els.copyButton.disabled = true;
+      els.downloadButton.disabled = true;
+      els.pasteGuide.innerHTML = '<strong>粘贴位置：</strong>先在截图上选择控件。';
+    }
+
+    function renderInspector() {
+      const node = selectedNode();
+      if (!node) { resetInspector(); return; }
+      const attr = node.attr || {};
+      els.emptyInspector.classList.add('hidden');
+      els.nodeSection.classList.remove('hidden');
+      els.selectorSection.classList.remove('hidden');
+      els.settingsSection.classList.remove('hidden');
+      els.nodeNumber.textContent = `#${node.id}`;
+      els.attributeGrid.replaceChildren();
+      const attributes = [
+        ['name', attr.name || '—'],
+        ['id', attr.id || '—'],
+        ['vid', attr.vid || '—'],
+        ['text', attr.text === null || attr.text === undefined || attr.text === '' ? '—' : String(attr.text)],
+        ['desc', attr.desc === null || attr.desc === undefined || attr.desc === '' ? '—' : String(attr.desc)],
+        ['bounds', `${attr.left ?? 0},${attr.top ?? 0} → ${attr.right ?? 0},${attr.bottom ?? 0}`],
+        ['size', `${attr.width ?? 0} × ${attr.height ?? 0}`],
+        ['tree', `depth ${attr.depth ?? '?'} · index ${attr.index ?? '?'}`],
+      ];
+      attributes.forEach(([key, value]) => {
+        const dt = document.createElement('dt');
+        dt.textContent = key;
+        const dd = document.createElement('dd');
+        dd.textContent = value;
+        dd.title = value;
+        els.attributeGrid.append(dt, dd);
+      });
+
+      els.nodeBadges.replaceChildren();
+      [
+        ['clickable', attr.clickable, 'good'],
+        ['focusable', attr.focusable, ''],
+        ['visible', attr.visibleToUser, attr.visibleToUser ? 'good' : 'warn'],
+        ['longClickable', attr.longClickable, ''],
+        ['idQf', node.idQf, node.idQf ? 'good' : ''],
+        ['textQf', node.textQf, node.textQf ? 'good' : ''],
+      ].forEach(([label, value, kind]) => {
+        if (value === null || value === undefined) return;
+        const badge = document.createElement('span');
+        badge.className = `badge ${kind}`.trim();
+        badge.textContent = `${label}: ${value}`;
+        els.nodeBadges.appendChild(badge);
+      });
+      renderSelectorOptions();
+    }
+
+    function renderSelectorOptions() {
+      els.selectorList.replaceChildren();
+      state.selectorOptions.forEach((option, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `selector-option${index === state.selectedOption ? ' active' : ''}`;
+        button.title = option.warning || '';
+        button.addEventListener('click', () => {
+          state.selectedOption = index;
+          els.selectorInput.value = option.selector;
+          els.fastQueryToggle.checked = Boolean(option.fastQuery);
+          renderSelectorOptions();
+          updateCode();
+        });
+        const head = document.createElement('div');
+        head.className = 'selector-option-head';
+        const name = document.createElement('span');
+        name.className = 'selector-option-name';
+        // [标记清理] 候选按钮只显示名称，不附加任何徽标前缀
+        name.textContent = option.name;
+        const count = document.createElement('span');
+        count.className = `match-count${option.count === 1 ? ' unique' : ''}`;
+        count.textContent = option.count === 1 ? '唯一命中' : `命中 ${option.count}`;
+        head.append(name, count);
+        const code = document.createElement('code');
+        code.textContent = option.selector;
+        button.append(head, code);
+        els.selectorList.appendChild(button);
+      });
+    }
+
+    function json5String(value) {
+      const escaped = [...String(value)].map((char) => {
+        if (char === '\\') return '\\\\';
+        if (char === "'") return "\\'";
+        if (char === '\b') return '\\b';
+        if (char === '\f') return '\\f';
+        if (char === '\n') return '\\n';
+        if (char === '\r') return '\\r';
+        if (char === '\t') return '\\t';
+        const code = char.codePointAt(0);
+        if (code < 0x20 || code === 0x7f || code === 0x2028 || code === 0x2029) return `\\u${code.toString(16).padStart(4, '0')}`;
+        return char;
+      }).join('');
+      return `'${escaped}'`;
+    }
+
+    function safeInteger(input, fallback, minimum = 0) {
+      const value = Number.parseInt(input.value, 10);
+      return Number.isFinite(value) ? Math.max(minimum, value) : fallback;
+    }
+
+    function subscriptionId(appId) {
+      let hash = 2166136261;
+      for (const char of String(appId || 'local')) {
+        hash ^= char.codePointAt(0);
+        hash = Math.imul(hash, 16777619);
+      }
+      return 800000 + (Math.abs(hash >>> 0) % 199999);
+    }
+
+    function buildRuleLines(indent) {
+      const snapshot = activeSnapshot();
+      const selector = els.selectorInput.value.trim();
+      const lines = [];
+      const add = (text) => lines.push(`${' '.repeat(indent)}${text}`);
+      add('{');
+      add(`  key: ${safeInteger(els.ruleKeyInput, 0, 0)},`);
+      if (els.fastQueryToggle.checked) add('  fastQuery: true,');
+      if (els.activityToggle.checked && snapshot?.data.activityId) add(`  activityIds: ${json5String(snapshot.data.activityId)},`);
+      if (els.actionSelect.value !== 'click') add(`  action: ${json5String(els.actionSelect.value)},`);
+      add('  matches: [');
+      add(`    ${json5String(selector)},`);
+      add('  ],');
+      const snapshotUrl = els.snapshotUrlInput.value.trim();
+      if (snapshotUrl) {
+        add('  snapshotUrls: [');
+        add(`    ${json5String(snapshotUrl)},`);
+        add('  ],');
+      }
+      add('},');
+      return lines;
+    }
+
+    function buildGroupLines(indent) {
+      const lines = [];
+      const add = (text) => lines.push(`${' '.repeat(indent)}${text}`);
+      add('{');
+      add(`  key: ${safeInteger(els.groupKeyInput, 0, 0)},`);
+      add(`  name: ${json5String(els.ruleNameInput.value.trim() || '自动点击目标控件')},`);
+      const desc = els.ruleDescInput.value.trim();
+      if (desc) add(`  desc: ${json5String(desc)},`);
+      add(`  actionMaximum: ${safeInteger(els.actionMaximumInput, 1, 1)},`);
+      add(`  matchTime: ${safeInteger(els.matchTimeInput, 10000, 0)},`);
+      if (els.resetMatchSelect.value !== 'none') add(`  resetMatch: ${json5String(els.resetMatchSelect.value)},`);
+      add('  rules: [');
+      lines.push(...buildRuleLines(indent + 4));
+      add('  ],');
+      add('},');
+      return lines;
+    }
+
+    function buildAppLines(indent) {
+      const snapshot = activeSnapshot();
+      const appId = snapshot?.data.appId || 'unknown.app';
+      const appName = snapshot?.data.appInfo?.name || appId;
+      const lines = [];
+      const add = (text) => lines.push(`${' '.repeat(indent)}${text}`);
+      add('{');
+      add(`  id: ${json5String(appId)},`);
+      add(`  name: ${json5String(appName)},`);
+      add('  groups: [');
+      lines.push(...buildGroupLines(indent + 4));
+      add('  ],');
+      add('},');
+      return lines;
+    }
+
+    function generateCode(mode) {
+      const snapshot = activeSnapshot();
+      if (!snapshot || !selectedNode() || !els.selectorInput.value.trim()) return '';
+      if (mode === 'group') return buildGroupLines(0).join('\n').replace(/,\s*$/, '');
+      if (mode === 'app') return buildAppLines(0).join('\n').replace(/,\s*$/, '');
+      const appId = snapshot.data.appId || 'unknown.app';
+      const appName = snapshot.data.appInfo?.name || appId;
+      const lines = [
+        '{',
+        `  id: ${subscriptionId(appId)},`,
+        `  name: ${json5String(`本地规则 · ${appName}`)},`,
+        '  version: 1,',
+        `  author: ${json5String('GKD 规则工坊')},`,
+        '  categories: [],',
+        '  globalGroups: [],',
+        '  apps: [',
+        ...buildAppLines(4),
+        '  ],',
+        '}',
+      ];
+      return lines.join('\n');
+    }
+
+    function updateCode() {
+      state.code = generateCode(state.outputMode);
+      const hasCode = Boolean(state.code);
+      els.codePreview.classList.toggle('hidden', !hasCode);
+      els.outputPlaceholder.classList.toggle('hidden', hasCode);
+      els.copyButton.disabled = !hasCode;
+      els.downloadButton.disabled = !hasCode;
+      els.codePreview.querySelector('code').textContent = state.code;
+      const guides = {
+        app: '<strong>粘贴位置：</strong>GKD → 订阅 → 本地订阅 → 应用规则 → 新增。',
+        group: '<strong>粘贴位置：</strong>GKD → 订阅 → 本地订阅 → 应用规则 → 进入对应应用 → 新增规则组。',
+        subscription: '<strong>用途：</strong>完整 JSON5 订阅文件，适合保存、托管或继续扩展；直接粘贴本地规则请用“应用规则”。',
+      };
+      els.pasteGuide.innerHTML = hasCode ? guides[state.outputMode] : '<strong>粘贴位置：</strong>先在截图上选择控件。';
+    }
+
+    document.querySelectorAll('.tab[data-mode]').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        state.outputMode = tab.dataset.mode;
+        document.querySelectorAll('.tab[data-mode]').forEach((item) => {
+          const active = item === tab;
+          item.classList.toggle('active', active);
+          item.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        updateCode();
+      });
+    });
+
+    els.selectorInput.addEventListener('input', updateCode);
+    els.ruleNameInput.addEventListener('input', () => { state.nameDirty = true; updateCode(); });
+    els.ruleDescInput.addEventListener('input', () => { state.descDirty = true; updateCode(); });
+    [els.groupKeyInput, els.ruleKeyInput, els.matchTimeInput, els.actionMaximumInput, els.snapshotUrlInput]
+      .forEach((input) => input.addEventListener('input', updateCode));
+    [els.resetMatchSelect, els.actionSelect, els.fastQueryToggle, els.activityToggle]
+      .forEach((input) => input.addEventListener('change', updateCode));
+
+    async function copyCode() {
+      if (!state.code) return;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(state.code);
+        } else {
+          const area = document.createElement('textarea');
+          area.value = state.code;
+          area.style.position = 'fixed';
+          area.style.opacity = '0';
+          document.body.appendChild(area);
+          area.select();
+          const ok = document.execCommand('copy');
+          area.remove();
+          if (!ok) throw new Error('copy failed');
+        }
+        toast('规则代码已复制。');
+      } catch {
+        toast('自动复制失败，请在代码区手动全选复制。', 'error');
+      }
+    }
+    els.copyButton.addEventListener('click', copyCode);
+
+    function downloadCode() {
+      if (!state.code) return;
+      const snapshot = activeSnapshot();
+      const appId = (snapshot?.data.appId || 'gkd-local').replace(/[^a-z0-9._-]+/gi, '-');
+      const suffix = state.outputMode === 'group' ? 'group' : state.outputMode === 'subscription' ? 'subscription' : 'app';
+      const blob = new Blob([state.code + '\n'], { type: 'application/json5;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${appId}.${suffix}.json5`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast('JSON5 文件已下载。');
+    }
+    els.downloadButton.addEventListener('click', downloadCode);
+  </script>
+</body>
+</html>
