@@ -129,15 +129,23 @@ button{cursor:pointer;}
 .ver:hover:not(:disabled){color:var(--accent-h);}
 .ver:disabled{color:var(--dim);border-color:transparent;cursor:not-allowed;}
 .c-latest{display:flex;flex-direction:column;align-items:flex-start;min-width:0;}
+.ver-line{display:flex;align-items:center;min-width:0;max-width:100%;}
 .vtag{
   background:none;border:none;padding:0;font:inherit;
   font-size:.86rem;font-weight:600;font-variant-numeric:tabular-nums;
   color:var(--text);cursor:pointer;text-align:left;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;min-width:0;
   border-bottom:1px dashed transparent;transition:color .15s,border-color .15s;
   -webkit-tap-highlight-color:transparent;
 }
 .vtag:hover{color:var(--accent);border-bottom-color:rgba(74,156,255,.5);}
+.pre-tag{
+  display:inline-flex;align-items:center;flex:none;
+  margin-left:6px;padding:1px 6px;border-radius:99px;
+  font-size:.62rem;font-weight:600;line-height:1.5;
+  color:var(--warn);background:rgba(245,184,61,.12);
+  border:1px solid rgba(245,184,61,.35);white-space:nowrap;
+}
 .date{font-size:.66rem;color:var(--dim);}
 .badge{
   display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;
@@ -165,19 +173,22 @@ button{cursor:pointer;}
 .empty .e{font-size:2rem;opacity:.6;}
 .empty p{font-size:.85rem;margin-top:10px;}
 
-/* ---------- 模态框 ---------- */
+/* ---------- 模态框（兼容低版本：不用 inset / 不用 visibility 切换） ---------- */
 .modal{
-  position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
-  padding:16px;background:rgba(5,7,11,.7);backdrop-filter:blur(3px);
-  opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s;
+  position:fixed;top:0;right:0;bottom:0;left:0;z-index:100;
+  display:none;align-items:center;justify-content:center;
+  padding:16px;background:rgba(5,7,11,.7);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
 }
-.modal.active{opacity:1;visibility:visible;}
+.modal.active{display:flex;}
 .modal-box{
-  width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:18px;
-  background:var(--surf2);border:1px solid var(--bd);border-radius:16px;
-  box-shadow:var(--shadow);transform:translateY(14px) scale(.985);transition:transform .22s;
+  width:100%;max-width:520px;max-height:88vh;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding:18px;background:var(--surf2);border:1px solid var(--bd);
+  border-radius:16px;box-shadow:var(--shadow);
 }
-.modal.active .modal-box{transform:none;}
+.modal.active .modal-box{animation:mbox-in .22s ease;}
+@keyframes mbox-in{from{opacity:.5;transform:translateY(14px) scale(.985);}to{opacity:1;transform:none;}}
 .modal-box.sm{max-width:400px;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
 .modal-head h2{font-size:1.02rem;font-weight:600;}
@@ -191,13 +202,6 @@ button{cursor:pointer;}
 .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap;}
 .modal-foot .grow{margin-right:auto;}
 
-/* 设置面板：Token 操作按钮组（位于数据管理上方） */
-.settings-actions{
-  display:flex;justify-content:flex-end;align-items:center;
-  gap:8px;margin:14px 0 16px;flex-wrap:wrap;
-}
-.settings-actions .grow{margin-right:auto;}
-
 /* ---------- 表单 ---------- */
 .field{margin-bottom:12px;}
 .field>label{display:block;margin-bottom:5px;font-size:.78rem;color:var(--dim);}
@@ -206,16 +210,21 @@ button{cursor:pointer;}
   background:var(--surf);color:var(--text);font-size:.9rem;transition:.18s;
 }
 .field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,156,255,.15);}
-.token-wrap{position:relative;}
-.token-wrap input{padding-right:42px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;}
-.token-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:30px;height:30px;font-size:.9rem;}
-.hint{
-  margin-top:8px;padding:8px 10px;font-size:.72rem;line-height:1.7;color:var(--dim);
-  background:rgba(74,156,255,.07);border:1px solid rgba(74,156,255,.2);border-radius:8px;
-}
-.hint b{color:var(--text);}
 .data-actions{display:flex;gap:8px;}
 .data-actions .btn{flex:1;}
+
+/* 开关行 */
+.switch-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border:1px solid var(--bd);border-radius:9px;
+  background:var(--surf);cursor:pointer;
+}
+.switch-row .sw-label{display:block;font-size:.84rem;color:var(--text);}
+.switch-row .sw-desc{display:block;font-size:.7rem;color:var(--dim);margin-top:2px;line-height:1.5;}
+.switch-row input[type="checkbox"]{
+  width:18px;height:18px;flex:none;margin-left:12px;
+  accent-color:var(--accent);cursor:pointer;
+}
 
 /* ---------- 文件列表 ---------- */
 .sel-all{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:.8rem;color:var(--dim);cursor:pointer;}
@@ -223,6 +232,7 @@ button{cursor:pointer;}
 .file-list{
   max-height:42vh;overflow-y:auto;margin:4px 0;
   border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);
+  -webkit-overflow-scrolling:touch;
 }
 .file-item{display:flex;align-items:center;gap:9px;padding:8px 2px;border-bottom:1px solid var(--bd);}
 .file-item:last-child{border-bottom:none;}
@@ -289,7 +299,6 @@ body.modal-open{overflow:hidden;}
     padding:16px 14px calc(16px + env(safe-area-inset-bottom));
   }
   .modal-foot .btn{flex:1;}
-  .settings-actions .btn{flex:1;}
   .date{display:none;}
 }
 @media (prefers-reduced-motion:reduce){
@@ -310,7 +319,7 @@ body.modal-open{overflow:hidden;}
   <button type="button" class="btn btn-primary" id="add-btn">＋ 添加</button>
   <button type="button" class="btn" id="check-btn">检测版本</button>
   <button type="button" class="btn" id="manage-btn">管理</button>
-  <button type="button" class="btn" id="settings-btn">设置<span id="token-dot" hidden> ·</span></button>
+  <button type="button" class="btn" id="settings-btn">设置</button>
 </div>
 
 <section class="panel" id="add-panel" hidden>
@@ -326,7 +335,6 @@ body.modal-open{overflow:hidden;}
 
 <div class="meta">
   <span id="stats"></span>
-  <span id="limit"></span>
 </div>
 
 <section class="card">
@@ -345,31 +353,27 @@ body.modal-open{overflow:hidden;}
     </div>
 
     <div class="field">
-      <label for="token-input">GitHub Personal Access Token（可选）</label>
-      <div class="token-wrap">
-        <input type="password" id="token-input" placeholder="ghp_… 或 github_pat_…" autocomplete="off" spellcheck="false">
-        <button type="button" class="icon-btn token-eye" id="token-eye" title="显示/隐藏">👁</button>
-      </div>
-      <div class="hint">
-        未配置时 API 限额 <b>60</b> 次/时；配置后提升至 <b>5000</b> 次/时。<br>
-        Token 仅保存在当前浏览器本地，<b>不会上传到任何服务器</b>。
-      </div>
+      <label>版本检测</label>
+      <label class="switch-row">
+        <span>
+          <span class="sw-label">检测预览版本（Pre-release）</span>
+          <span class="sw-desc">开启后同时检测预发布版本；关闭时仅检测正式版本</span>
+        </span>
+        <input type="checkbox" id="pre-toggle">
+      </label>
     </div>
 
-    <!-- Token 操作按钮组：位于数据管理上方 -->
-    <div class="settings-actions">
-      <button type="button" class="btn btn-danger grow" id="token-clear">清除 Token</button>
-      <button type="button" class="btn" data-close>取消</button>
-      <button type="button" class="btn btn-primary" id="token-save">保存</button>
-    </div>
-
-    <div class="field">
+    <div class="field" style="margin-bottom:0">
       <label>数据管理</label>
       <div class="data-actions">
         <label class="btn" for="import-file">导入记录</label>
         <input type="file" id="import-file" accept=".json,.txt,application/json" hidden>
         <button type="button" class="btn" id="export-btn">导出记录</button>
       </div>
+    </div>
+
+    <div class="modal-foot">
+      <button type="button" class="btn btn-primary" data-close>完成</button>
     </div>
   </div>
 </div>
@@ -435,12 +439,13 @@ body.modal-open{overflow:hidden;}
 
 /* ==================== 常量 ==================== */
 const SK = 'github_version_list';
-const TK = 'github_api_token';
+const PK = 'github_include_prerelease';
 const THK = 'gh_theme';
 const RESTORE_FILE = 'GitHub项目版本检测&下载.json';
 const CLICK_TIMES = 3;
 const CLICK_WINDOW = 1500;
 const DELAY = 800;
+const API_HEADERS = { 'Accept': 'application/vnd.github+json' };
 
 const STATUS = {
   '待检测':   ['pending',  '待检测'],
@@ -464,7 +469,7 @@ const SVG_MOON = '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 
 
 /* ==================== 状态 ==================== */
 let list = [];
-let token = '';
+let includePrerelease = false;
 let checking = false;
 let restoring = false;
 let manageMode = false;
@@ -566,27 +571,15 @@ function initTheme() {
   applyTheme(saved);
 }
 
-/* ==================== Token ==================== */
-function loadToken() {
-  try { token = localStorage.getItem(TK) || ''; } catch (e) { token = ''; }
-  syncTokenUI();
+/* ==================== 预览版本偏好 ==================== */
+function loadPrereleasePref() {
+  try { includePrerelease = localStorage.getItem(PK) === '1'; }
+  catch (e) { includePrerelease = false; }
+  if (el.preToggle) el.preToggle.checked = includePrerelease;
 }
 
-function saveToken(t) {
-  token = t;
-  try {
-    t ? localStorage.setItem(TK, t) : localStorage.removeItem(TK);
-  } catch (e) { toast('Token 保存失败', 'error'); }
-  syncTokenUI();
-}
-
-function syncTokenUI() {
-  if (el.tokenDot) el.tokenDot.hidden = !token;
-  if (el.limit) {
-    el.limit.innerHTML = token
-      ? 'API 限额 <b>5000</b> 次/时（已认证）'
-      : 'API 限额 <b>60</b> 次/时（未配置 Token）';
-  }
+function savePrereleasePref() {
+  try { localStorage.setItem(PK, includePrerelease ? '1' : '0'); } catch (e) {}
 }
 
 /* ==================== 数据层 ==================== */
@@ -607,6 +600,7 @@ function normalizeRecord(raw) {
     localVersion: typeof raw.localVersion === 'string' ? raw.localVersion.trim() : '',
     latestVersion: typeof raw.latestVersion === 'string' ? raw.latestVersion : '',
     publishTime: typeof raw.publishTime === 'string' ? raw.publishTime : '',
+    prerelease: raw.prerelease === true,
     status,
     error: typeof raw.error === 'string' ? raw.error : '',
     assets
@@ -738,6 +732,11 @@ function rowHtml(it, i) {
   const badgeCls = isNew ? ' clickable' : '';
   const badgeTip = isNew ? ' title="点击同步为最新版本"' : '';
 
+  /* 预览版本标签 */
+  const preTag = it.prerelease
+    ? '<span class="pre-tag" title="预发布版本（Pre-release）">预览</span>'
+    : '';
+
   /* 删除按钮仅在管理模式下出现 */
   const delBtn = manageMode
     ? '<button type="button" class="btn btn-xs btn-danger" data-act="del" data-i="' + i + '"' + dis + '>删除</button>'
@@ -755,9 +754,12 @@ function rowHtml(it, i) {
     '</div>' +
     '<div class="c-latest">' +
       '<span class="ml">下载最新</span>' +
-      '<button type="button" class="vtag" data-act="download" data-i="' + i + '" title="' + esc(dlTip) + '">' +
-        (it.latestVersion ? esc(it.latestVersion) : '—') +
-      '</button>' +
+      '<span class="ver-line">' +
+        '<button type="button" class="vtag" data-act="download" data-i="' + i + '" title="' + esc(dlTip) + '">' +
+          (it.latestVersion ? esc(it.latestVersion) : '—') +
+        '</button>' +
+        preTag +
+      '</span>' +
       (it.publishTime ? '<span class="date">' + esc(it.publishTime) + '</span>' : '') +
     '</div>' +
     '<div class="c-status">' +
@@ -810,11 +812,6 @@ function closeModal(m) {
     el.fileList.innerHTML = '';
     el.selectAll.checked = false;
   }
-  if (m === el.setModal) {
-    el.tokenInput.value = '';
-    el.tokenInput.type = 'password';
-    el.tokenEye.textContent = '👁';
-  }
   syncLock();
 }
 
@@ -851,6 +848,7 @@ function handleAdd(e) {
     localVersion: el.addVer.value.trim(),
     latestVersion: '',
     publishTime: '',
+    prerelease: false,
     status: '待检测',
     error: '',
     assets: []
@@ -894,6 +892,7 @@ function handleEdit(e) {
   if (changed) {
     it.latestVersion = '';
     it.publishTime = '';
+    it.prerelease = false;
     it.assets = [];
     it.error = '';
     it.status = '待检测';
@@ -983,12 +982,6 @@ function handleRepoLinkClick(e) {
 }
 
 /* ==================== 版本检测 ==================== */
-function apiHeaders() {
-  const h = { 'Accept': 'application/vnd.github+json' };
-  if (token) h['Authorization'] = 'Bearer ' + token;
-  return h;
-}
-
 function setCheckBtn(text, disabled) {
   el.checkBtn.textContent = text;
   el.checkBtn.disabled = disabled;
@@ -1017,24 +1010,42 @@ async function checkAll() {
         const p = parseRepo(it.url);
         if (!p) throw new Error('链接解析失败');
 
-        const res = await fetch(
-          'https://api.github.com/repos/' + p.owner + '/' + p.repo + '/releases/latest',
-          { headers: apiHeaders() }
-        );
+        const base = 'https://api.github.com/repos/' + p.owner + '/' + p.repo;
+        const url = includePrerelease
+          ? base + '/releases?per_page=30'
+          : base + '/releases/latest';
+
+        const res = await fetch(url, { headers: API_HEADERS });
 
         if (!res.ok) {
-          if (res.status === 401) throw new Error('Token 无效或已过期，请在设置中检查');
-          if (res.status === 404) throw new Error('未找到 Release');
+          if (res.status === 404) {
+            throw new Error(includePrerelease
+              ? '未找到 Release'
+              : '未找到 Release（可能仅有预览版本，可在设置中开启预览检测）');
+          }
           if (res.status === 403 || res.status === 429) {
             limited = true;
-            throw new Error(token ? 'API 限流，请稍后再试' : 'API 限流（未配置 Token，每小时仅 60 次）');
+            throw new Error('API 限流，请稍后再试（每小时 60 次）');
           }
           throw new Error('请求失败（HTTP ' + res.status + '）');
         }
 
-        const data = await res.json();
+        let data;
+        if (includePrerelease) {
+          const arr = await res.json();
+          if (!Array.isArray(arr) || !arr.length) throw new Error('未找到 Release');
+          data = null;
+          for (let k = 0; k < arr.length; k++) {
+            if (arr[k] && !arr[k].draft) { data = arr[k]; break; }
+          }
+          if (!data) throw new Error('未找到 Release');
+        } else {
+          data = await res.json();
+        }
+
         it.latestVersion = data.tag_name || '';
         it.publishTime = fmtDate(data.published_at);
+        it.prerelease = !!data.prerelease;
         it.assets = Array.isArray(data.assets)
           ? data.assets
               .map(a => ({
@@ -1059,8 +1070,8 @@ async function checkAll() {
       if (i < total - 1) await sleep(DELAY);
     }
 
-    if (limited && !token) {
-      toast('部分项目因 API 限流失败，可在「设置」中配置 Token 提升限额', 'error');
+    if (limited) {
+      toast('部分项目因 API 限流失败，请稍后再试', 'error');
     } else if (failed) {
       toast('检测完成，' + failed + ' 个失败', 'error');
     } else {
@@ -1173,43 +1184,8 @@ function importFile(e) {
 /* ==================== 设置 ==================== */
 function openSettings() {
   if (checking) return;
-  el.tokenInput.value = token;
-  el.tokenInput.type = 'password';
-  el.tokenEye.textContent = '👁';
+  if (el.preToggle) el.preToggle.checked = includePrerelease;
   openModal(el.setModal);
-  setTimeout(() => el.tokenInput.focus(), 60);
-}
-
-function saveTokenHandler() {
-  const t = el.tokenInput.value.trim();
-  if (t && !/^[\x21-\x7e]+$/.test(t)) {
-    toast('Token 含有非法字符，请检查', 'error');
-    el.tokenInput.focus();
-    return;
-  }
-  const before = token;
-  saveToken(t);
-  closeModal(el.setModal);
-
-  if (!t && before) toast('已清除 Token', 'success');
-  else if (t && before !== t) toast('Token 已保存，检测限额提升', 'success');
-  else if (t) toast('Token 未变化');
-  else toast('已关闭设置');
-}
-
-function clearTokenHandler() {
-  if (!token) { toast('当前未配置 Token'); return; }
-  confirmDialog({
-    title: '清除 Token',
-    message: '清除后将恢复为未认证状态（每小时 60 次 API 请求），确定继续吗？',
-    okText: '清除'
-  }).then(ok => {
-    if (!ok) return;
-    el.tokenInput.value = '';
-    saveToken('');
-    closeModal(el.setModal);
-    toast('已清除 Token', 'success');
-  });
 }
 
 /* ==================== 事件绑定 ==================== */
@@ -1238,16 +1214,14 @@ function bindEvents() {
   el.settingsBtn.addEventListener('click', openSettings);
   el.exportBtn.addEventListener('click', exportData);
   el.importFile.addEventListener('change', importFile);
-  el.tokenSave.addEventListener('click', saveTokenHandler);
-  el.tokenClear.addEventListener('click', clearTokenHandler);
-  el.tokenEye.addEventListener('click', () => {
-    const hide = el.tokenInput.type === 'password';
-    el.tokenInput.type = hide ? 'text' : 'password';
-    el.tokenEye.textContent = hide ? '🙈' : '👁';
-  });
-  el.tokenInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); saveTokenHandler(); }
-  });
+
+  if (el.preToggle) {
+    el.preToggle.addEventListener('change', () => {
+      includePrerelease = el.preToggle.checked;
+      savePrereleasePref();
+      toast(includePrerelease ? '已开启预览版本检测' : '已关闭预览版本检测', 'success');
+    });
+  }
 
   el.editForm.addEventListener('submit', handleEdit);
 
@@ -1291,12 +1265,12 @@ function bindEvents() {
 function cacheEls() {
   const map = {
     'title':'title','theme-btn':'themeBtn','add-btn':'addBtn','check-btn':'checkBtn',
-    'manage-btn':'manageBtn','settings-btn':'settingsBtn','token-dot':'tokenDot',
+    'manage-btn':'manageBtn','settings-btn':'settingsBtn',
     'add-panel':'addPanel','add-form':'addForm','add-url':'addUrl','add-ver':'addVer',
-    'add-cancel':'addCancel','stats':'stats','limit':'limit','repo-list':'repoList',
-    'settings-modal':'setModal','token-input':'tokenInput','token-eye':'tokenEye',
-    'token-save':'tokenSave','token-clear':'tokenClear','export-btn':'exportBtn',
-    'import-file':'importFile','edit-modal':'editModal','edit-form':'editForm',
+    'add-cancel':'addCancel','stats':'stats','repo-list':'repoList',
+    'settings-modal':'setModal','pre-toggle':'preToggle',
+    'export-btn':'exportBtn','import-file':'importFile',
+    'edit-modal':'editModal','edit-form':'editForm',
     'edit-url':'editUrl','edit-ver':'editVer','confirm-modal':'confirmModal',
     'confirm-title':'confirmTitle','confirm-msg':'confirmMsg','confirm-ok':'confirmOk',
     'confirm-cancel':'confirmCancel','download-modal':'dlModal','download-sub':'downloadSub',
@@ -1308,7 +1282,7 @@ function cacheEls() {
 function init() {
   cacheEls();
   initTheme();
-  loadToken();
+  loadPrereleasePref();
   list = loadData();
   bindEvents();
   render();
