@@ -1,5 +1,21 @@
 [
   {
+    "url": "https://github.com/iamr0s/InstallerX",
+    "localVersion": "v1.7"
+  },
+  {
+    "url": "https://github.com/Buwrt/githup",
+    "localVersion": "v1.2.20"
+  },
+  {
+    "url": "https://github.com/CYQawa/YunX",
+    "localVersion": "v1.3.1"
+  },
+  {
+    "url": "https://github.com/RikkaApps/Shizuku",
+    "localVersion": "v13.6.0"
+  },
+  {
     "url": "https://github.com/RazGame/Shizuku",
     "localVersion": "v13.6.0.r1369-razgame-rikka-beta"
   },
@@ -40,19 +56,7 @@
     "localVersion": "GiteePro"
   },
   {
-    "url": "https://github.com/iamr0s/InstallerX",
-    "localVersion": "v1.7"
-  },
-  {
-    "url": "https://github.com/Buwrt/githup",
-    "localVersion": "v1.2.20"
-  },
-  {
-    "url": "https://github.com/CYQawa/YunX",
-    "localVersion": "v1.3.1"
-  },
-  {
-    "url": "https://github.com/RikkaApps/Shizuku",
-    "localVersion": "v13.6.0"
+    "url": "https://github.com/ximeiorg/Xime",
+    "localVersion": "v3.6.0-alpha.2"
   }
 ]
