@@ -511,6 +511,8 @@ let dlIdx = -1;
 let confirmResolve = null;
 let clickCount = 0;
 let clickTimer = null;
+/* 仓库名（repo 部分，小写）在列表中的出现次数，用于判断是否需要显示开发者名 */
+let repoNameCounts = {};
 const el = {};
 
 /* ==================== 工具 ==================== */
@@ -758,6 +760,28 @@ function toggleManage() {
   render();
 }
 
+/* ==================== 仓库名显示 ==================== */
+/* 统计列表中每个 repo 名（小写）出现次数，用于决定是否附带开发者名 */
+function buildRepoNameCounts() {
+  const counts = {};
+  list.forEach(it => {
+    const p = parseRepo(it.url);
+    if (!p) return;
+    const k = p.repo.toLowerCase();
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  return counts;
+}
+
+/* 列表显示名：默认只显示仓库名；若存在同名仓库，则显示 开发者/仓库名 */
+function displayRepoName(url) {
+  const p = parseRepo(url);
+  if (!p) return '未知项目';
+  return (repoNameCounts[p.repo.toLowerCase()] > 1)
+    ? p.owner + '/' + p.repo
+    : p.repo;
+}
+
 /* ==================== 渲染 ==================== */
 function rowHtml(it, i) {
   const meta = STATUS[it.status] || STATUS['待检测'];
@@ -784,6 +808,10 @@ function rowHtml(it, i) {
     ? '<span class="pre-tag" title="预发布版本（Pre-release）">预览</span>'
     : '';
 
+  /* 仓库显示名：默认仓库名，同名时附带开发者 */
+  const shownName = displayRepoName(it.url);
+  const fullName = repoName(it.url);
+
   /* 本地版本：显示截断后的文本，完整版本放在 title */
   const localFull = it.localVersion || '';
   const localText = localFull ? esc(truncateVer(localFull)) : '未填写';
@@ -807,7 +835,7 @@ function rowHtml(it, i) {
 
   return '<div class="row' + (isNew ? ' is-new' : '') + '">' +
     '<div class="c-name">' +
-      '<a class="repo" href="' + esc(relUrl(it.url)) + '" target="_blank" rel="noopener noreferrer" title="在新窗口打开 Releases 页面">' + esc(repoName(it.url)) + '</a>' +
+      '<a class="repo" href="' + esc(relUrl(it.url)) + '" target="_blank" rel="noopener noreferrer" title="在新窗口打开 Releases 页面（' + esc(fullName) + '）">' + esc(shownName) + '</a>' +
     '</div>' +
     '<div class="c-local">' +
       '<span class="ml">本地</span>' +
@@ -842,6 +870,8 @@ function sortedEntries() {
 }
 
 function render() {
+  repoNameCounts = buildRepoNameCounts();
+
   if (!list.length) {
     el.repoList.innerHTML = '<div class="empty"><div class="e">📦</div><p>还没有项目，点击「添加」开始追踪</p></div>';
     el.stats.textContent = '';
