@@ -8,16 +8,49 @@
 <style>
     :root{
         --bg:#0f1115;
+        --glow:#1b2433;
         --card:#181b21;
         --card-2:#22262f;
+        --card-3:#2d323c;
         --line:#2a2f38;
+        --line-2:#39404c;
         --text:#e8ecf2;
         --dim:#8b94a3;
         --accent:#3d8bff;
+        --accent-soft:rgba(61,139,255,.16);
         --accent-2:#7d8cff;
         --danger:#ff5c6c;
+        --danger-soft:rgba(255,92,108,.12);
         --ok:#2ed573;
+        --ok-soft:rgba(46,213,115,.12);
+        --ok-line:rgba(46,213,115,.35);
+        --shadow:0 10px 30px rgba(0,0,0,.45);
+        --shadow-lg:0 22px 50px rgba(0,0,0,.5);
+        --mask:rgba(5,7,10,.7);
         --radius:12px;
+    }
+
+    html[data-theme="light"]{
+        --bg:#f3f5fa;
+        --glow:#e3ecfb;
+        --card:#ffffff;
+        --card-2:#eef1f7;
+        --card-3:#e4e9f2;
+        --line:#dde3ed;
+        --line-2:#c9d2e0;
+        --text:#1b2130;
+        --dim:#6b7484;
+        --accent:#2f7ef0;
+        --accent-soft:rgba(47,126,240,.12);
+        --accent-2:#7d8cff;
+        --danger:#e8434f;
+        --danger-soft:rgba(232,67,79,.1);
+        --ok:#1fae5e;
+        --ok-soft:rgba(31,174,94,.12);
+        --ok-line:rgba(31,174,94,.35);
+        --shadow:0 10px 30px rgba(20,30,60,.15);
+        --shadow-lg:0 22px 50px rgba(20,30,60,.18);
+        --mask:rgba(15,20,30,.35);
     }
 
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -26,13 +59,14 @@
     body{
         font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
         background:var(--bg);
-        background-image:radial-gradient(720px 400px at 50% -10%,#1b2433 0%,transparent 70%);
+        background-image:radial-gradient(720px 400px at 50% -10%, var(--glow) 0%, transparent 70%);
         background-repeat:no-repeat;
         color:var(--text);
         font-size:15px;
         line-height:1.5;
         min-height:100vh;
         padding:22px 16px 50px;
+        transition:background-color .25s,color .25s;
     }
 
     .wrap{max-width:640px;margin:0 auto;}
@@ -40,7 +74,7 @@
     /* 头部 */
     header{
         display:flex;
-        align-items:baseline;
+        align-items:center;
         justify-content:space-between;
         gap:12px;
         margin-bottom:18px;
@@ -54,9 +88,32 @@
         -webkit-background-clip:text;
         background-clip:text;
         color:transparent;
+        cursor:pointer;
+        user-select:none;
+        -webkit-user-select:none;
+        -webkit-tap-highlight-color:transparent;
     }
 
+    .head-right{display:flex;align-items:center;gap:10px;}
+
     .stat{font-size:.78rem;color:var(--dim);white-space:nowrap;}
+
+    .icon-btn{
+        flex:none;
+        width:36px;height:36px;
+        display:flex;align-items:center;justify-content:center;
+        border:1px solid var(--line);
+        border-radius:10px;
+        background:var(--card);
+        color:var(--text);
+        font-size:1rem;
+        line-height:1;
+        cursor:pointer;
+        transition:background .16s,border-color .16s,transform .1s;
+    }
+
+    .icon-btn:hover{background:var(--card-2);border-color:var(--line-2);}
+    .icon-btn:active{transform:scale(.94);}
 
     /* 工具栏 */
     .toolbar{display:flex;gap:9px;margin-bottom:16px;}
@@ -76,13 +133,13 @@
         transition:border-color .18s,box-shadow .18s;
     }
 
-    input::placeholder{color:#5f6875;}
+    input::placeholder{color:var(--dim);opacity:.75;}
 
     input[type="text"]:focus,
     input[type="number"]:focus{
         outline:none;
         border-color:var(--accent);
-        box-shadow:0 0 0 3px rgba(61,139,255,.16);
+        box-shadow:0 0 0 3px var(--accent-soft);
     }
 
     input[type="number"]{-moz-appearance:textfield;}
@@ -101,10 +158,10 @@
         font-weight:500;
         white-space:nowrap;
         cursor:pointer;
-        transition:background .16s,border-color .16s,transform .1s;
+        transition:background .16s,border-color .16s,color .16s,transform .1s;
     }
 
-    .btn:hover{background:var(--card-2);border-color:#39404c;}
+    .btn:hover{background:var(--card-2);border-color:var(--line-2);}
     .btn:active{transform:scale(.97);}
 
     .btn.primary{
@@ -112,14 +169,20 @@
         border-color:var(--accent);
         color:#fff;
     }
-    .btn.primary:hover{background:#5a9dff;border-color:#5a9dff;}
+    .btn.primary:hover{background:var(--accent-2);border-color:var(--accent-2);}
+
+    .btn.on{
+        background:var(--accent-soft);
+        border-color:var(--accent);
+        color:var(--accent);
+    }
 
     .btn.danger{
         background:var(--danger);
         border-color:var(--danger);
         color:#fff;
     }
-    .btn.danger:hover{background:#e94b5b;border-color:#e94b5b;}
+    .btn.danger:hover{opacity:.9;}
 
     /* 列表 */
     .list{display:flex;flex-direction:column;gap:10px;}
@@ -127,15 +190,15 @@
     .item{
         display:flex;
         align-items:center;
-        gap:14px;
+        gap:12px;
         padding:14px 16px;
         background:var(--card);
         border:1px solid var(--line);
         border-radius:var(--radius);
-        transition:border-color .18s;
+        transition:border-color .18s,background-color .25s;
     }
 
-    .item:hover{border-color:#39404c;}
+    .item:hover{border-color:var(--line-2);}
 
     .info{flex:1;min-width:0;}
 
@@ -152,9 +215,9 @@
     .tag{
         flex:none;
         padding:1px 8px;
-        border:1px solid rgba(46,213,115,.35);
+        border:1px solid var(--ok-line);
         border-radius:999px;
-        background:rgba(46,213,115,.1);
+        background:var(--ok-soft);
         color:var(--ok);
         font-size:.66rem;
         font-weight:600;
@@ -185,34 +248,75 @@
         font-variant-numeric:tabular-nums;
     }
 
-    .acts{display:flex;gap:6px;flex:none;}
+    /* 操作区 */
+    .acts{display:flex;align-items:center;gap:6px;flex:none;}
 
+    /* 编辑/删除：默认隐藏，管理模式显示 */
     .mini{
-        padding:7px 11px;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        padding:7px 10px;
         border:1px solid var(--line);
         border-radius:8px;
         background:var(--card-2);
         color:var(--text);
         font:inherit;
-        font-size:.8rem;
+        font-size:.78rem;
         cursor:pointer;
         transition:background .16s,border-color .16s,transform .1s;
     }
 
-    .mini:hover:not(:disabled){background:#2d323c;border-color:#3d4450;}
-    .mini:active:not(:disabled){transform:scale(.95);}
-    .mini:disabled{opacity:.35;cursor:not-allowed;}
-    .mini.del{color:var(--danger);border-color:rgba(255,92,108,.3);}
-    .mini.del:hover{background:rgba(255,92,108,.12);border-color:var(--danger);}
+    body.manage .mini{display:inline-flex;}
+
+    .mini:hover{background:var(--card-3);border-color:var(--line-2);}
+    .mini:active{transform:scale(.95);}
+
+    .mini.del{color:var(--danger);border-color:var(--danger-soft);}
+    .mini.del:hover{background:var(--danger-soft);border-color:var(--danger);}
+
+    /* +1 圆形按钮：始终显示，小巧直观 */
+    .plus{
+        flex:none;
+        width:38px;height:38px;
+        display:flex;align-items:center;justify-content:center;
+        border:1px solid var(--accent);
+        border-radius:50%;
+        background:var(--accent-soft);
+        color:var(--accent);
+        font:inherit;
+        font-size:.84rem;
+        font-weight:700;
+        letter-spacing:-.02em;
+        cursor:pointer;
+        transition:background .16s,color .16s,transform .1s,border-color .16s;
+        -webkit-tap-highlight-color:transparent;
+    }
+
+    .plus:hover:not(:disabled){
+        background:var(--accent);
+        border-color:var(--accent);
+        color:#fff;
+    }
+
+    .plus:active:not(:disabled){transform:scale(.9);}
+
+    .plus:disabled{
+        background:var(--card-2);
+        border-color:var(--line);
+        color:var(--dim);
+        opacity:.6;
+        cursor:default;
+    }
 
     /* 空状态 */
     .empty{padding:64px 20px;text-align:center;color:var(--dim);}
     .empty .emoji{font-size:2.6rem;line-height:1;margin-bottom:12px;opacity:.7;}
     .empty p{font-size:.9rem;}
 
-    /* 底部 */
+    /* 底部导入导出：管理模式显示 */
     .foot{
-        display:flex;
+        display:none;
         align-items:center;
         justify-content:center;
         gap:8px;
@@ -220,6 +324,8 @@
         font-size:.8rem;
         color:var(--dim);
     }
+
+    body.manage .foot{display:flex;}
 
     .link-btn{
         padding:4px 2px;
@@ -244,7 +350,7 @@
         align-items:center;
         justify-content:center;
         padding:16px;
-        background:rgba(5,7,10,.7);
+        background:var(--mask);
         backdrop-filter:blur(3px);
         -webkit-backdrop-filter:blur(3px);
     }
@@ -258,7 +364,7 @@
         background:var(--card);
         border:1px solid var(--line);
         border-radius:16px;
-        box-shadow:0 22px 50px rgba(0,0,0,.5);
+        box-shadow:var(--shadow-lg);
         animation:pop .18s ease;
     }
 
@@ -300,8 +406,9 @@
         padding:10px 18px;
         border:1px solid var(--line);
         border-radius:999px;
-        background:#2b303a;
+        background:var(--card-2);
         color:var(--text);
+        box-shadow:var(--shadow);
         font-size:.84rem;
         text-align:center;
         opacity:0;
@@ -317,8 +424,12 @@
         body{padding:16px 12px 40px;}
         h1{font-size:1.2rem;}
 
-        .item{flex-direction:column;align-items:stretch;gap:12px;}
-        .acts .mini{flex:1;padding:9px 6px;}
+        .item{padding:12px 13px;gap:10px;}
+
+        .mini{padding:6px 8px;font-size:.74rem;}
+
+        .plus{width:34px;height:34px;font-size:.78rem;}
+
         .two{grid-template-columns:1fr;gap:0;}
         .dlg-foot .btn{flex:1;}
     }
@@ -332,21 +443,25 @@
 
 <div class="wrap">
     <header>
-        <h1>追剧记录</h1>
-        <span class="stat" id="stat"></span>
+        <h1 id="title">追剧记录</h1>
+        <div class="head-right">
+            <span class="stat" id="stat"></span>
+            <button type="button" class="icon-btn" id="theme-btn" aria-label="切换日夜模式" title="切换日夜模式">🌙</button>
+        </div>
     </header>
 
     <div class="toolbar">
         <div class="search">
             <input type="text" id="search" placeholder="搜索剧集…" autocomplete="off" aria-label="搜索剧集">
         </div>
-        <button class="btn primary" id="add-btn">＋ 添加</button>
+        <button type="button" class="btn primary" id="add-btn">＋ 添加</button>
+        <button type="button" class="btn" id="manage-btn" aria-pressed="false">管理</button>
     </div>
 
     <div class="list" id="list"></div>
 
     <div class="foot">
-        <button class="link-btn" id="export-btn">导出备份</button>
+        <button type="button" class="link-btn" id="export-btn">导出备份</button>
         <span class="dot">·</span>
         <label class="link-btn" for="import-file">导入备份</label>
         <input type="file" id="import-file" accept=".json,application/json" hidden>
@@ -396,11 +511,15 @@
     'use strict';
 
     const KEY = 'tvShows.records';
+    const THEME_KEY = 'tvShows.theme';
+    const MANAGE_KEY = 'tvShows.manage';
+    const BACKUP_FILE = '追剧进度管理.json';
 
     let shows = [];        // 全部记录
     let term = '';         // 搜索词
     let editingId = null;  // 正在编辑的 id
     let confirmResolve = null;
+    let restoring = false; // 防止备份恢复重复触发
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -423,6 +542,54 @@
         t.classList.add('on');
         clearTimeout(toastTimer);
         toastTimer = setTimeout(function () { t.classList.remove('on'); }, 2000);
+    }
+
+    /* ============ 主题 ============ */
+
+    function applyTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+        $('theme-btn').textContent = theme === 'light' ? '☀️' : '🌙';
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f3f5fa' : '#0f1115');
+        try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+    }
+
+    function initTheme() {
+        let saved = null;
+        try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+        if (saved !== 'light' && saved !== 'dark') {
+            saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)
+                ? 'light' : 'dark';
+        }
+        applyTheme(saved);
+    }
+
+    function toggleTheme() {
+        applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+    }
+
+    /* ============ 管理模式 ============ */
+
+    let manageMode = false;
+
+    function applyManage() {
+        document.body.classList.toggle('manage', manageMode);
+        const btn = $('manage-btn');
+        btn.textContent = manageMode ? '完成' : '管理';
+        btn.classList.toggle('on', manageMode);
+        btn.setAttribute('aria-pressed', manageMode ? 'true' : 'false');
+        try { localStorage.setItem(MANAGE_KEY, manageMode ? '1' : '0'); } catch (e) {}
+    }
+
+    function initManage() {
+        try { manageMode = localStorage.getItem(MANAGE_KEY) === '1'; } catch (e) { manageMode = false; }
+        applyManage();
+    }
+
+    function toggleManage() {
+        manageMode = !manageMode;
+        applyManage();
+        if (manageMode) closeAllModals();
     }
 
     /* ============ 数据 ============ */
@@ -476,9 +643,10 @@
                 '<div class="meta">' + meta + '</div>' +
             '</div>' +
             '<div class="acts">' +
-                '<button type="button" class="mini" data-act="inc"' + (done ? ' disabled' : '') + '>+1</button>' +
                 '<button type="button" class="mini" data-act="edit">编辑</button>' +
                 '<button type="button" class="mini del" data-act="del">删除</button>' +
+                '<button type="button" class="plus" data-act="inc"' +
+                    (done ? ' disabled' : '') + '>' + (done ? '✓' : '+1') + '</button>' +
             '</div>' +
         '</div>';
     }
@@ -504,7 +672,15 @@
         $('list').innerHTML = list.map(itemHtml).join('');
     }
 
-    /* ============ 确认框 ============ */
+    /* ============ 弹窗 ============ */
+
+    function closeAllModals() {
+        $('mask').classList.remove('on');
+        $('confirm-mask').classList.remove('on');
+        $('list').querySelectorAll('.item').forEach(function () {});
+        editingId = null;
+        if (confirmResolve) { const r = confirmResolve; confirmResolve = null; r(false); }
+    }
 
     function ask(title, message, okText) {
         $('c-title').textContent = title;
@@ -613,7 +789,30 @@
         toast('已删除');
     }
 
-    /* ============ 导入 / 导出 ============ */
+    /* ============ 合并导入 ============ */
+
+    function mergeRecords(records) {
+        let added = 0, updated = 0;
+
+        records.forEach(function (item) {
+            const exist = shows.find(function (s) {
+                return s.name.toLowerCase() === item.name.toLowerCase();
+            });
+
+            if (!exist) {
+                shows.push(item);
+                added++;
+            } else if (item.current > exist.current) {
+                exist.current = item.current;
+                if (item.total) exist.total = item.total;
+                updated++;
+            }
+        });
+
+        return { added: added, updated: updated };
+    }
+
+    /* ============ 手动导出 / 导入 ============ */
 
     function exportData() {
         if (!shows.length) {
@@ -665,32 +864,67 @@
                 return;
             }
 
-            // 合并：同名剧集保留进度较大的一条
-            let added = 0;
-            let updated = 0;
-
-            records.forEach(function (item) {
-                const exist = shows.find(function (s) {
-                    return s.name.toLowerCase() === item.name.toLowerCase();
-                });
-
-                if (!exist) {
-                    shows.push(item);
-                    added++;
-                } else if (item.current > exist.current) {
-                    exist.current = item.current;
-                    if (item.total) exist.total = item.total;
-                    updated++;
-                }
-            });
-
+            const r = mergeRecords(records);
             save();
             render();
-            toast('导入完成：新增 ' + added + ' 条，更新 ' + updated + ' 条');
+            toast('导入完成：新增 ' + r.added + ' 条，更新 ' + r.updated + ' 条');
         };
 
         reader.onerror = function () { toast('读取文件失败'); };
         reader.readAsText(file);
+    }
+
+    /* ============ 隐藏功能：三连击标题加载远程备份 ============ */
+
+    async function loadRemoteBackup() {
+        if (restoring) return;
+        restoring = true;
+        toast('正在加载备份文件…');
+
+        try {
+            const res = await fetch(encodeURI(BACKUP_FILE), { cache: 'no-store' });
+
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+
+            const data = await res.json();
+
+            if (!Array.isArray(data)) throw new Error('bad format');
+
+            const records = data.map(normalize).filter(Boolean);
+            if (!records.length) {
+                toast('备份文件中没有有效记录');
+                return;
+            }
+
+            const r = mergeRecords(records);
+            save();
+            render();
+            toast('恢复完成：新增 ' + r.added + ' 条，更新 ' + r.updated + ' 条');
+        } catch (err) {
+            toast('加载备份失败，请确认同目录存在 ' + BACKUP_FILE);
+        } finally {
+            restoring = false;
+        }
+    }
+
+    function bindTitleTripleTap() {
+        const title = $('title');
+        let count = 0;
+        let timer = null;
+
+        title.addEventListener('click', function () {
+            count++;
+
+            clearTimeout(timer);
+
+            if (count >= 3) {
+                count = 0;
+                loadRemoteBackup();
+                return;
+            }
+
+            timer = setTimeout(function () { count = 0; }, 700);
+        });
     }
 
     /* ============ 事件绑定 ============ */
@@ -702,13 +936,15 @@
             render();
         });
 
-        // 添加
+        // 添加 / 管理 / 主题
         $('add-btn').addEventListener('click', function () { openDialog(null); });
+        $('manage-btn').addEventListener('click', toggleManage);
+        $('theme-btn').addEventListener('click', toggleTheme);
 
         // 列表委托
         $('list').addEventListener('click', function (e) {
             const btn = e.target.closest('button[data-act]');
-            if (!btn) return;
+            if (!btn || btn.disabled) return;
 
             const item = btn.closest('.item');
             if (!item) return;
@@ -741,6 +977,9 @@
         $('export-btn').addEventListener('click', exportData);
         $('import-file').addEventListener('change', importFile);
 
+        // 隐藏功能
+        bindTitleTripleTap();
+
         // 键盘
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
@@ -759,6 +998,8 @@
 
     /* ============ 启动 ============ */
 
+    initTheme();
+    initManage();
     load();
     bind();
     render();
