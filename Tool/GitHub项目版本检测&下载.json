@@ -1,7 +1,7 @@
 [
   {
     "url": "https://github.com/RazGame/Shizuku",
-    "localVersion": "13.6.0.r1369beta"
+    "localVersion": "v13.6.0.r1369-razgame-rikka-beta"
   },
   {
     "url": "https://github.com/ZxxXinI/tvbox/releases",
@@ -17,7 +17,7 @@
   },
   {
     "url": "https://github.com/LegadoTeam/legado",
-    "localVersion": "3.26101819"
+    "localVersion": "beta"
   },
   {
     "url": "https://github.com/aistra0528/Hail",
@@ -45,7 +45,7 @@
   },
   {
     "url": "https://github.com/Buwrt/githup",
-    "localVersion": "githup-attachments"
+    "localVersion": "v1.2.20"
   },
   {
     "url": "https://github.com/CYQawa/YunX",
