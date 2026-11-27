@@ -480,6 +480,7 @@ body.modal-open{overflow:hidden;}
 const SK = 'github_version_list';
 const PK = 'github_include_prerelease';
 const THK = 'gh_theme';
+const EXPORT_FILE = 'GitHub项目版本检测&下载.json';
 const RESTORE_FILE = 'GitHub项目版本检测&下载.json';
 const CLICK_TIMES = 3;
 const CLICK_WINDOW = 1500;
@@ -1266,15 +1267,10 @@ function exportData() {
   const data = list.map(it => ({ url: it.url, localVersion: it.localVersion || '' }));
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
 
-  const d = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const name = 'github_repos_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
-    '_' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
-
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = name;
+  a.download = EXPORT_FILE;
   document.body.appendChild(a);
   a.click();
   a.remove();
