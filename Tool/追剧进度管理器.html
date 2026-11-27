@@ -74,11 +74,13 @@
     /* 头部 */
     header{
         display:flex;
-        align-items:center;
+        align-items:flex-start;
         justify-content:space-between;
         gap:12px;
         margin-bottom:18px;
     }
+
+    .head-left{flex:1;min-width:0;}
 
     h1{
         font-size:1.35rem;
@@ -94,7 +96,15 @@
         -webkit-tap-highlight-color:transparent;
     }
 
-    .head-right{display:flex;align-items:center;gap:10px;}
+    .hint{
+        margin-top:3px;
+        font-size:.72rem;
+        color:var(--dim);
+        letter-spacing:.01em;
+        overflow-wrap:anywhere;
+    }
+
+    .head-right{display:flex;align-items:center;gap:10px;flex:none;padding-top:2px;}
 
     .stat{font-size:.78rem;color:var(--dim);white-space:nowrap;}
 
@@ -457,6 +467,7 @@
     @media (max-width:520px){
         body{padding:16px 12px 40px;}
         h1{font-size:1.2rem;}
+        .hint{font-size:.68rem;}
 
         .item{padding:12px 13px;gap:8px;}
 
@@ -479,7 +490,10 @@
 
 <div class="wrap">
     <header>
-        <h1 id="title">追剧记录</h1>
+        <div class="head-left">
+            <h1 id="title">追剧记录</h1>
+            <p class="hint">双击剧集复制名称 · 管理模式下可拖动排序、导入导出</p>
+        </div>
         <div class="head-right">
             <span class="stat" id="stat"></span>
             <button type="button" class="icon-btn" id="theme-btn" aria-label="切换日夜模式" title="切换日夜模式">🌙</button>
@@ -576,6 +590,27 @@
         t.classList.add('on');
         clearTimeout(toastTimer);
         toastTimer = setTimeout(function () { t.classList.remove('on'); }, 2000);
+    }
+
+    /* 复制到剪贴板，带降级方案 */
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (resolve, reject) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.top = '-1000px';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            ta.remove();
+            ok ? resolve() : reject(new Error('copy failed'));
+        });
     }
 
     /* ============ 主题 ============ */
@@ -1102,6 +1137,27 @@
         });
     }
 
+    /* ============ 双击复制剧名 ============ */
+
+    function onListDblClick(e) {
+        // 拖动中不触发
+        if (drag && drag.active) return;
+        // 按钮、拖动手柄上不触发
+        if (e.target.closest('button') || e.target.closest('[data-handle]')) return;
+
+        const item = e.target.closest('.item');
+        if (!item) return;
+
+        const s = shows.find(function (x) { return x.id === item.dataset.id; });
+        if (!s) return;
+
+        copyText(s.name).then(function () {
+            toast('已复制「' + s.name + '」');
+        }).catch(function () {
+            toast('复制失败，请手动选择剧名');
+        });
+    }
+
     /* ============ 事件绑定 ============ */
 
     function bind() {
@@ -1133,6 +1189,9 @@
                 if (s) openDialog(s);
             }
         });
+
+        // 双击复制
+        listEl.addEventListener('dblclick', onListDblClick);
 
         // 拖动排序
         listEl.addEventListener('pointerdown', onPointerDown);
