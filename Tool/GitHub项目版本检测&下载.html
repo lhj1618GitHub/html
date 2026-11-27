@@ -106,7 +106,7 @@ button{cursor:pointer;}
 .card{background:var(--surf);border:1px solid var(--bd);border-radius:12px;overflow:hidden;}
 .head,.row{
   display:grid;
-  grid-template-columns:minmax(0,1.6fr) 110px minmax(0,1fr) 92px 176px;
+  grid-template-columns:minmax(0,1.6fr) 120px minmax(0,1fr) 92px 176px;
   gap:12px;align-items:center;
 }
 .head{padding:8px 14px;background:var(--surf2);color:var(--dim);font-size:.72rem;letter-spacing:.04em;}
@@ -121,20 +121,32 @@ button{cursor:pointer;}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
 }
 .repo:hover{color:var(--accent);text-decoration:underline;}
+
+/* 本地版本：管理模式为可点击按钮，否则为静态文本 */
 .ver{
   background:none;border:none;padding:0;font:inherit;font-size:.86rem;
   color:var(--accent);border-bottom:1px dashed rgba(74,156,255,.5);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:100%;min-width:0;
 }
 .ver:hover:not(:disabled){color:var(--accent-h);}
 .ver:disabled{color:var(--dim);border-color:transparent;cursor:not-allowed;}
+.ver-static{
+  display:block;font-size:.86rem;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:100%;min-width:0;
+}
+.ver-static.empty{color:var(--dim);}
+
+.c-local{display:flex;align-items:center;gap:6px;min-width:0;}
 .c-latest{display:flex;flex-direction:column;align-items:flex-start;min-width:0;}
 .ver-line{display:flex;align-items:center;min-width:0;max-width:100%;}
 .vtag{
   background:none;border:none;padding:0;font:inherit;
   font-size:.86rem;font-weight:600;font-variant-numeric:tabular-nums;
   color:var(--text);cursor:pointer;text-align:left;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  max-width:100%;min-width:0;
   border-bottom:1px dashed transparent;transition:color .15s,border-color .15s;
   -webkit-tap-highlight-color:transparent;
 }
@@ -173,7 +185,7 @@ button{cursor:pointer;}
 .empty .e{font-size:2rem;opacity:.6;}
 .empty p{font-size:.85rem;margin-top:10px;}
 
-/* ---------- 模态框（兼容低版本：不用 inset / 不用 visibility 切换） ---------- */
+/* ---------- 模态框 ---------- */
 .modal{
   position:fixed;top:0;right:0;bottom:0;left:0;z-index:100;
   display:none;align-items:center;justify-content:center;
@@ -265,15 +277,21 @@ body.modal-open{overflow:hidden;}
   .head{display:none;}
   .row{
     grid-template-columns:minmax(0,1fr) auto;
-    grid-template-areas:"name status" "local latest" "acts acts";
-    gap:7px 10px;padding:11px 12px;
+    grid-template-areas:
+      "name status"
+      "local local"
+      "latest latest"
+      "acts acts";
+    gap:6px 10px;padding:11px 12px;
   }
-  .c-name{grid-area:name;}
-  .c-status{grid-area:status;justify-self:end;}
-  .c-local{grid-area:local;display:flex;align-items:center;gap:6px;min-width:0;}
+  .c-name{grid-area:name;min-width:0;}
+  .c-status{grid-area:status;justify-self:end;align-self:center;}
+  .c-local{
+    grid-area:local;display:flex;align-items:center;gap:8px;min-width:0;
+  }
   .c-latest{
-    grid-area:latest;display:flex;flex-direction:row;align-items:baseline;
-    justify-self:end;gap:6px;min-width:0;
+    grid-area:latest;display:flex;flex-direction:row;align-items:center;
+    gap:8px;min-width:0;
   }
   .c-acts{
     grid-area:acts;display:flex;gap:6px;padding-top:8px;
@@ -283,6 +301,12 @@ body.modal-open{overflow:hidden;}
   .c-acts .btn{flex:1;padding:7px 4px;font-size:.78rem;}
   .ml{display:inline;}
   .repo{font-size:.95rem;}
+
+  /* 分行后版本号可占满剩余宽度，超长自动省略 */
+  .c-local .ver,
+  .c-local .ver-static{flex:0 1 auto;min-width:0;max-width:100%;}
+  .c-latest .ver-line{flex:0 1 auto;min-width:0;}
+  .c-latest .date{margin-left:auto;}
 }
 @media (max-width:600px){
   body{padding:12px 10px 30px;}
@@ -737,6 +761,13 @@ function rowHtml(it, i) {
     ? '<span class="pre-tag" title="预发布版本（Pre-release）">预览</span>'
     : '';
 
+  /* 本地版本：仅管理模式可点击编辑，否则显示为静态文本 */
+  const localText = it.localVersion ? esc(it.localVersion) : '未填写';
+  const localHtml = manageMode
+    ? '<button type="button" class="ver" data-act="edit" data-i="' + i + '" title="点击编辑本地版本"' + dis + '>' + localText + '</button>'
+    : '<span class="ver-static' + (it.localVersion ? '' : ' empty') + '"' +
+        (it.localVersion ? ' title="' + esc(it.localVersion) + '"' : '') + '>' + localText + '</span>';
+
   /* 删除按钮仅在管理模式下出现 */
   const delBtn = manageMode
     ? '<button type="button" class="btn btn-xs btn-danger" data-act="del" data-i="' + i + '"' + dis + '>删除</button>'
@@ -748,9 +779,7 @@ function rowHtml(it, i) {
     '</div>' +
     '<div class="c-local">' +
       '<span class="ml">本地</span>' +
-      '<button type="button" class="ver" data-act="edit" data-i="' + i + '" title="点击编辑本地版本"' + dis + '>' +
-        (it.localVersion ? esc(it.localVersion) : '未填写') +
-      '</button>' +
+      localHtml +
     '</div>' +
     '<div class="c-latest">' +
       '<span class="ml">下载最新</span>' +
@@ -860,8 +889,9 @@ function handleAdd(e) {
   toast('已添加项目', 'success');
 }
 
+/* 仅在管理模式下允许编辑 */
 function openEdit(i) {
-  if (checking) return;
+  if (checking || !manageMode) return;
   const it = list[i];
   if (!it) return;
   editIdx = i;
@@ -935,7 +965,7 @@ function syncVersion(i) {
 }
 
 function deleteItem(i) {
-  if (checking) return;
+  if (checking || !manageMode) return;
   const it = list[i];
   if (!it) return;
 
@@ -960,10 +990,16 @@ function handleListClick(e) {
   if (!(i >= 0 && i < list.length)) return;
 
   switch (btn.dataset.act) {
-    case 'edit':     openEdit(i); break;
+    case 'edit':
+      if (!manageMode) return;
+      openEdit(i);
+      break;
     case 'download': openDownload(i); break;
     case 'sync':     syncVersion(i); break;
-    case 'del':      deleteItem(i); break;
+    case 'del':
+      if (!manageMode) return;
+      deleteItem(i);
+      break;
   }
 }
 
