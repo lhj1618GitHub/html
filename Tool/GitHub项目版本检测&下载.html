@@ -106,7 +106,7 @@ button{cursor:pointer;}
 .card{background:var(--surf);border:1px solid var(--bd);border-radius:12px;overflow:hidden;}
 .head,.row{
   display:grid;
-  grid-template-columns:minmax(0,1.6fr) 120px minmax(0,1fr) 160px 176px;
+  grid-template-columns:minmax(0,1.6fr) 120px minmax(0,1fr) 220px 176px;
   gap:12px;align-items:center;
 }
 .head{padding:8px 14px;background:var(--surf2);color:var(--dim);font-size:.72rem;letter-spacing:.04em;}
@@ -159,11 +159,16 @@ button{cursor:pointer;}
   border:1px solid rgba(245,184,61,.35);white-space:nowrap;
 }
 
-/* 状态列：徽章 + 发布日期同行 */
+/* 状态列：徽章 + 发布日期/错误信息同行 */
 .c-status{display:flex;align-items:center;gap:6px;min-width:0;}
 .pub-date{
   font-size:.68rem;color:var(--dim);white-space:nowrap;
   font-variant-numeric:tabular-nums;
+}
+.err-msg{
+  font-size:.68rem;color:var(--warn);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:150px;
+  line-height:1.4;
 }
 
 .badge{
@@ -295,6 +300,7 @@ body.modal-open{overflow:hidden;}
   .c-status{
     grid-area:status;justify-self:end;align-self:center;
     display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 6px;
+    max-width:100%;
   }
   .c-local{grid-area:local;display:flex;align-items:center;gap:6px;min-width:0;}
   .c-latest{
@@ -316,6 +322,7 @@ body.modal-open{overflow:hidden;}
   .c-latest .ver-line{flex:1 1 auto;min-width:0;max-width:100%;}
   .c-latest .vtag{flex:1 1 auto;min-width:0;max-width:100%;}
   .pub-date{font-size:.64rem;}
+  .err-msg{font-size:.64rem;max-width:100%;}
 }
 @media (max-width:600px){
   body{padding:12px 10px 30px;}
@@ -479,6 +486,7 @@ const CLICK_WINDOW = 1500;
 const DELAY = 800;
 const API_HEADERS = { 'Accept': 'application/vnd.github+json' };
 const VER_MAX_CHARS = 12;
+const ERR_MAX_CHARS = 14;
 
 const STATUS = {
   '待检测':   ['pending',  '待检测'],
@@ -520,13 +528,15 @@ const el = {};
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/* 版本号截断：超过 12 个字符（按 Unicode 字符计）以省略号结尾 */
-function truncateVer(s, n) {
+/* 通用截断：超过 n 个字符（按 Unicode 字符计）以省略号结尾 */
+function truncateStr(s, n) {
   const max = (typeof n === 'number' && n > 0) ? n : VER_MAX_CHARS;
   const arr = Array.from(String(s == null ? '' : s));
   if (arr.length <= max) return arr.join('');
   return arr.slice(0, max).join('') + '…';
 }
+
+const truncateVer = s => truncateStr(s, VER_MAX_CHARS);
 
 function normalizeUrl(v) {
   const s = String(v == null ? '' : v).trim();
@@ -616,7 +626,7 @@ function initTheme() {
 }
 
 /* ==================== 预览版本偏好 ==================== */
-/* 关键：只有本地存储中确实存在值时才覆盖默认值；
+/* 只有本地存储中确实存在值时才覆盖默认值；
    没有存储值时保留代码中 includePrerelease 的默认设置。 */
 function loadPrereleasePref() {
   let saved = null;
@@ -809,6 +819,14 @@ function rowHtml(it, i) {
     ? '<span class="pub-date" title="发布日期">' + esc(it.publishTime) + '</span>'
     : '';
 
+  /* 检测失败：在徽章旁显示精简错误信息（完整内容放在 title） */
+  const isErr = it.status === '检测失败' && !!it.error;
+  const errHtml = isErr
+    ? '<span class="err-msg" title="' + esc(it.error) + '">' +
+        esc(truncateStr(it.error, ERR_MAX_CHARS)) +
+      '</span>'
+    : '';
+
   /* 预览版本标签 */
   const preTag = it.prerelease
     ? '<span class="pre-tag" title="预发布版本（Pre-release）">预览</span>'
@@ -859,6 +877,7 @@ function rowHtml(it, i) {
     '<div class="c-status">' +
       '<span class="badge ' + meta[0] + badgeCls + '"' + tip + badgeTip + badgeAct + '>' + meta[1] + '</span>' +
       dateHtml +
+      errHtml +
     '</div>' +
     '<div class="c-acts">' + delBtn + '</div>' +
   '</div>';
