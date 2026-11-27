@@ -127,7 +127,7 @@ button{cursor:pointer;}
   background:none;border:none;padding:0;font:inherit;font-size:.86rem;
   color:var(--accent);border-bottom:1px dashed rgba(74,156,255,.5);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:100%;min-width:0;
+  max-width:100%;min-width:0;display:block;text-align:left;
 }
 .ver:hover:not(:disabled){color:var(--accent-h);}
 .ver:disabled{color:var(--dim);border-color:transparent;cursor:not-allowed;}
@@ -275,23 +275,21 @@ body.modal-open{overflow:hidden;}
 /* ---------- 响应式 ---------- */
 @media (max-width:820px){
   .head{display:none;}
+  /* 本地版本 / 最新版本 同行，各占一半 */
   .row{
-    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
     grid-template-areas:
       "name status"
-      "local local"
-      "latest latest"
+      "local latest"
       "acts acts";
-    gap:6px 10px;padding:11px 12px;
+    gap:7px 10px;padding:11px 12px;
   }
   .c-name{grid-area:name;min-width:0;}
   .c-status{grid-area:status;justify-self:end;align-self:center;}
-  .c-local{
-    grid-area:local;display:flex;align-items:center;gap:8px;min-width:0;
-  }
+  .c-local{grid-area:local;display:flex;align-items:center;gap:6px;min-width:0;}
   .c-latest{
-    grid-area:latest;display:flex;flex-direction:row;align-items:center;
-    gap:8px;min-width:0;
+    grid-area:latest;display:flex;flex-direction:row;align-items:baseline;
+    justify-self:stretch;gap:6px;min-width:0;
   }
   .c-acts{
     grid-area:acts;display:flex;gap:6px;padding-top:8px;
@@ -302,11 +300,12 @@ body.modal-open{overflow:hidden;}
   .ml{display:inline;}
   .repo{font-size:.95rem;}
 
-  /* 分行后版本号可占满剩余宽度，超长自动省略 */
+  /* 版本号占满所在半列，超长省略 */
   .c-local .ver,
-  .c-local .ver-static{flex:0 1 auto;min-width:0;max-width:100%;}
-  .c-latest .ver-line{flex:0 1 auto;min-width:0;}
-  .c-latest .date{margin-left:auto;}
+  .c-local .ver-static{flex:1 1 auto;min-width:0;max-width:100%;}
+  .c-latest .ver-line{flex:1 1 auto;min-width:0;max-width:100%;}
+  .c-latest .vtag{flex:1 1 auto;min-width:0;max-width:100%;}
+  .date{display:none;}
 }
 @media (max-width:600px){
   body{padding:12px 10px 30px;}
@@ -470,6 +469,7 @@ const CLICK_TIMES = 3;
 const CLICK_WINDOW = 1500;
 const DELAY = 800;
 const API_HEADERS = { 'Accept': 'application/vnd.github+json' };
+const VER_MAX_CHARS = 12;
 
 const STATUS = {
   '待检测':   ['pending',  '待检测'],
@@ -507,6 +507,14 @@ const el = {};
 /* ==================== 工具 ==================== */
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* 版本号截断：超过 12 个字符（按 Unicode 字符计）以省略号结尾 */
+function truncateVer(s, n) {
+  const max = (typeof n === 'number' && n > 0) ? n : VER_MAX_CHARS;
+  const arr = Array.from(String(s == null ? '' : s));
+  if (arr.length <= max) return arr.join('');
+  return arr.slice(0, max).join('') + '…';
+}
 
 function normalizeUrl(v) {
   const s = String(v == null ? '' : v).trim();
@@ -761,12 +769,21 @@ function rowHtml(it, i) {
     ? '<span class="pre-tag" title="预发布版本（Pre-release）">预览</span>'
     : '';
 
-  /* 本地版本：仅管理模式可点击编辑，否则显示为静态文本 */
-  const localText = it.localVersion ? esc(it.localVersion) : '未填写';
+  /* 本地版本：显示截断后的文本，完整版本放在 title */
+  const localFull = it.localVersion || '';
+  const localText = localFull ? esc(truncateVer(localFull)) : '未填写';
+  const localTitle = localFull ? ' title="' + esc(localFull) + '"' : '';
   const localHtml = manageMode
-    ? '<button type="button" class="ver" data-act="edit" data-i="' + i + '" title="点击编辑本地版本"' + dis + '>' + localText + '</button>'
-    : '<span class="ver-static' + (it.localVersion ? '' : ' empty') + '"' +
-        (it.localVersion ? ' title="' + esc(it.localVersion) + '"' : '') + '>' + localText + '</span>';
+    ? '<button type="button" class="ver" data-act="edit" data-i="' + i + '"' +
+        ' title="点击编辑本地版本' + (localFull ? '：' + esc(localFull) : '') + '"' + dis + '>' +
+        localText +
+      '</button>'
+    : '<span class="ver-static' + (localFull ? '' : ' empty') + '"' + localTitle + '>' + localText + '</span>';
+
+  /* 最新版本：显示截断后的文本，完整版本放在 title */
+  const latestFull = it.latestVersion || '';
+  const latestText = latestFull ? esc(truncateVer(latestFull)) : '—';
+  const latestTitle = (latestFull ? '完整版本：' + latestFull + ' · ' : '') + dlTip;
 
   /* 删除按钮仅在管理模式下出现 */
   const delBtn = manageMode
@@ -784,8 +801,8 @@ function rowHtml(it, i) {
     '<div class="c-latest">' +
       '<span class="ml">下载最新</span>' +
       '<span class="ver-line">' +
-        '<button type="button" class="vtag" data-act="download" data-i="' + i + '" title="' + esc(dlTip) + '">' +
-          (it.latestVersion ? esc(it.latestVersion) : '—') +
+        '<button type="button" class="vtag" data-act="download" data-i="' + i + '" title="' + esc(latestTitle) + '">' +
+          latestText +
         '</button>' +
         preTag +
       '</span>' +
