@@ -190,15 +190,50 @@
     .item{
         display:flex;
         align-items:center;
-        gap:12px;
+        gap:10px;
         padding:14px 16px;
         background:var(--card);
         border:1px solid var(--line);
         border-radius:var(--radius);
-        transition:border-color .18s,background-color .25s;
+        transition:border-color .18s,background-color .25s,box-shadow .18s,opacity .18s;
     }
 
     .item:hover{border-color:var(--line-2);}
+
+    /* 拖动手柄 */
+    .handle{
+        display:none;
+        flex:none;
+        width:24px;
+        height:40px;
+        align-items:center;
+        justify-content:center;
+        color:var(--dim);
+        font-size:.9rem;
+        letter-spacing:-2px;
+        line-height:1;
+        cursor:grab;
+        touch-action:none;
+        user-select:none;
+        -webkit-user-select:none;
+        -webkit-tap-highlight-color:transparent;
+        border-radius:6px;
+        transition:background .15s,color .15s;
+    }
+
+    body.manage .handle{display:flex;}
+    .handle:hover{background:var(--card-2);color:var(--text);}
+    .handle:active{cursor:grabbing;}
+
+    .item.dragging{
+        opacity:.9;
+        border-color:var(--accent);
+        box-shadow:0 0 0 1px var(--accent), var(--shadow);
+        position:relative;
+        z-index:2;
+    }
+
+    body.manage .item{user-select:none;-webkit-user-select:none;}
 
     .info{flex:1;min-width:0;}
 
@@ -251,7 +286,6 @@
     /* 操作区 */
     .acts{display:flex;align-items:center;gap:6px;flex:none;}
 
-    /* 编辑/删除：默认隐藏，管理模式显示 */
     .mini{
         display:none;
         align-items:center;
@@ -275,7 +309,7 @@
     .mini.del{color:var(--danger);border-color:var(--danger-soft);}
     .mini.del:hover{background:var(--danger-soft);border-color:var(--danger);}
 
-    /* +1 圆形按钮：始终显示，小巧直观 */
+    /* +1 圆形按钮 */
     .plus{
         flex:none;
         width:38px;height:38px;
@@ -314,7 +348,7 @@
     .empty .emoji{font-size:2.6rem;line-height:1;margin-bottom:12px;opacity:.7;}
     .empty p{font-size:.9rem;}
 
-    /* 底部导入导出：管理模式显示 */
+    /* 底部导入导出 */
     .foot{
         display:none;
         align-items:center;
@@ -424,7 +458,9 @@
         body{padding:16px 12px 40px;}
         h1{font-size:1.2rem;}
 
-        .item{padding:12px 13px;gap:10px;}
+        .item{padding:12px 13px;gap:8px;}
+
+        .handle{width:20px;}
 
         .mini{padding:6px 8px;font-size:.74rem;}
 
@@ -515,19 +551,17 @@
     const MANAGE_KEY = 'tvShows.manage';
     const BACKUP_FILE = '追剧进度管理.json';
 
-    let shows = [];        // 全部记录
+    let shows = [];        // 全部记录，数组顺序即排序，id 为顺序编号
     let term = '';         // 搜索词
-    let editingId = null;  // 正在编辑的 id
+    let editingId = null;  // 正在编辑的记录 id
     let confirmResolve = null;
-    let restoring = false; // 防止备份恢复重复触发
+    let restoring = false;
+    let manageMode = false;
 
     const $ = function (id) { return document.getElementById(id); };
+    const listEl = document.getElementById('list');
 
     /* ============ 小工具 ============ */
-
-    function uid() {
-        return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    }
 
     function esc(str) {
         return String(str).replace(/[&<>"']/g, function (c) {
@@ -570,8 +604,6 @@
 
     /* ============ 管理模式 ============ */
 
-    let manageMode = false;
-
     function applyManage() {
         document.body.classList.toggle('manage', manageMode);
         const btn = $('manage-btn');
@@ -588,11 +620,11 @@
 
     function toggleManage() {
         manageMode = !manageMode;
+        if (!manageMode) cancelDrag();
         applyManage();
-        if (manageMode) closeAllModals();
     }
 
-    /* ============ 数据 ============ */
+    /* ============ 数据规范化 ============ */
 
     function normalize(raw) {
         if (!raw || typeof raw !== 'object') return null;
@@ -606,13 +638,38 @@
         if (!Number.isFinite(current) || current < 0) current = 0;
         if (total && current > total) current = total;
 
-        return { id: uid(), name: name, current: current, total: total };
+        // id 作为排序依据，必须是有效整数，否则置空等待重新赋值
+        let id = raw.id;
+        let idNum = Number(id);
+        if (id === null || id === undefined || id === '' || !Number.isFinite(idNum)) {
+            id = null;
+        } else {
+            id = String(Math.floor(idNum));
+        }
+
+        return { id: id, name: name, current: current, total: total };
     }
+
+    /* ============ 加载 / 保存 ============ */
 
     function load() {
         try {
             const raw = JSON.parse(localStorage.getItem(KEY) || '[]');
-            shows = Array.isArray(raw) ? raw.map(normalize).filter(Boolean) : [];
+            if (!Array.isArray(raw)) { shows = []; return; }
+
+            const items = raw.map(normalize).filter(Boolean);
+
+            // 按记录内 id 排序（无效 id 排最后）
+            items.sort(function (a, b) {
+                if (a.id === null && b.id === null) return 0;
+                if (a.id === null) return 1;
+                if (b.id === null) return -1;
+                return Number(a.id) - Number(b.id);
+            });
+
+            // 按列表顺序重新赋 id
+            items.forEach(function (s, i) { s.id = String(i); });
+            shows = items;
         } catch (e) {
             shows = [];
         }
@@ -634,7 +691,8 @@
         const pct = hasTotal ? Math.min(100, Math.round(s.current / s.total * 100)) : 0;
         const meta = hasTotal ? s.current + ' / ' + s.total + ' 集' : '已看 ' + s.current + ' 集';
 
-        return '<div class="item' + (done ? ' done' : '') + '" data-id="' + s.id + '">' +
+        return '<div class="item' + (done ? ' done' : '') + '" data-id="' + esc(s.id) + '">' +
+            '<div class="handle" data-handle aria-label="拖动排序" title="拖动排序">⋮⋮</div>' +
             '<div class="info">' +
                 '<div class="name">' + esc(s.name) +
                     (done ? '<span class="tag">已完结</span>' : '') +
@@ -661,7 +719,7 @@
             : '';
 
         if (!list.length) {
-            $('list').innerHTML =
+            listEl.innerHTML =
                 '<div class="empty">' +
                     '<div class="emoji">' + (t ? '🔍' : '📺') + '</div>' +
                     '<p>' + (t ? '没有找到匹配的剧集' : '还没有记录，点「＋ 添加」开始追剧吧') + '</p>' +
@@ -669,7 +727,119 @@
             return;
         }
 
-        $('list').innerHTML = list.map(itemHtml).join('');
+        listEl.innerHTML = list.map(itemHtml).join('');
+    }
+
+    /* ============ 拖动排序 ============ */
+
+    let drag = null;
+
+    function cancelDrag() {
+        if (drag) {
+            if (drag.el) drag.el.classList.remove('dragging');
+            drag = null;
+        }
+    }
+
+    function onPointerDown(e) {
+        if (!manageMode) return;
+        const handle = e.target.closest('[data-handle]');
+        if (!handle) return;
+        const item = handle.closest('.item');
+        if (!item) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+        e.preventDefault();
+
+        drag = {
+            el: item,
+            pointerId: e.pointerId,
+            startY: e.clientY,
+            active: false
+        };
+
+        try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+
+    function onPointerMove(e) {
+        if (!drag || e.pointerId !== drag.pointerId) return;
+
+        const dy = e.clientY - drag.startY;
+
+        if (!drag.active) {
+            if (Math.abs(dy) < 5) return;
+            drag.active = true;
+            drag.el.classList.add('dragging');
+        }
+
+        if (e.cancelable) e.preventDefault();
+
+        const y = e.clientY;
+        const items = Array.prototype.slice.call(listEl.querySelectorAll('.item'));
+        let swapped = false;
+
+        for (let i = 0; i < items.length; i++) {
+            const t = items[i];
+            if (t === drag.el) continue;
+            const r = t.getBoundingClientRect();
+            if (y >= r.top && y <= r.bottom) {
+                const before = y < r.top + r.height / 2;
+                if (before) {
+                    if (t.previousElementSibling !== drag.el) {
+                        listEl.insertBefore(drag.el, t);
+                        swapped = true;
+                    }
+                } else {
+                    if (t.nextElementSibling !== drag.el) {
+                        listEl.insertBefore(drag.el, t.nextSibling);
+                        swapped = true;
+                    }
+                }
+                break;
+            }
+        }
+
+        if (!swapped) {
+            const first = items[0];
+            const last = items[items.length - 1];
+            if (first && first !== drag.el && y < first.getBoundingClientRect().top) {
+                listEl.insertBefore(drag.el, first);
+            } else if (last && last !== drag.el && y > last.getBoundingClientRect().bottom) {
+                listEl.appendChild(drag.el);
+            }
+        }
+    }
+
+    function onPointerUp(e) {
+        if (!drag || (e && e.pointerId !== drag.pointerId)) return;
+
+        const wasActive = drag.active;
+        if (drag.el) drag.el.classList.remove('dragging');
+        drag = null;
+
+        if (wasActive) syncOrder();
+    }
+
+    /* 按当前 DOM 顺序重排数据并重新赋值 id */
+    function syncOrder() {
+        const listItems = Array.prototype.slice.call(listEl.querySelectorAll('.item'));
+        const idMap = {};
+        shows.forEach(function (s) { idMap[s.id] = s; });
+
+        const ordered = [];
+        listItems.forEach(function (el) {
+            const s = idMap[el.dataset.id];
+            if (s) { ordered.push(s); delete idMap[el.dataset.id]; }
+        });
+
+        // 被搜索过滤掉、未出现在 DOM 中的记录按原有顺序追加
+        shows.forEach(function (s) { if (idMap[s.id]) ordered.push(s); });
+
+        ordered.forEach(function (s, i) { s.id = String(i); });
+        shows = ordered;
+
+        save();
+        render();
     }
 
     /* ============ 弹窗 ============ */
@@ -677,7 +847,6 @@
     function closeAllModals() {
         $('mask').classList.remove('on');
         $('confirm-mask').classList.remove('on');
-        $('list').querySelectorAll('.item').forEach(function () {});
         editingId = null;
         if (confirmResolve) { const r = confirmResolve; confirmResolve = null; r(false); }
     }
@@ -747,7 +916,8 @@
             const s = shows.find(function (x) { return x.id === editingId; });
             if (s) { s.name = name; s.current = current; s.total = total; }
         } else {
-            shows.unshift({ id: uid(), name: name, current: current, total: total });
+            shows.unshift({ id: '', name: name, current: current, total: total });
+            shows.forEach(function (s, i) { s.id = String(i); });
         }
 
         save();
@@ -784,6 +954,7 @@
         if (!ok) return;
 
         shows = shows.filter(function (x) { return x.id !== id; });
+        shows.forEach(function (x, i) { x.id = String(i); });
         save();
         render();
         toast('已删除');
@@ -800,7 +971,8 @@
             });
 
             if (!exist) {
-                shows.push(item);
+                // 合并时不使用导入记录的 id，追加到末尾后统一重排
+                shows.push({ id: '', name: item.name, current: item.current, total: item.total });
                 added++;
             } else if (item.current > exist.current) {
                 exist.current = item.current;
@@ -809,10 +981,13 @@
             }
         });
 
+        // 按当前顺序重新赋值 id
+        shows.forEach(function (s, i) { s.id = String(i); });
+
         return { added: added, updated: updated };
     }
 
-    /* ============ 手动导出 / 导入 ============ */
+    /* ============ 导出 / 导入 ============ */
 
     function exportData() {
         if (!shows.length) {
@@ -896,6 +1071,7 @@
                 return;
             }
 
+            // 与现有记录合并，合并时忽略导入 id，并保持现有顺序
             const r = mergeRecords(records);
             save();
             render();
@@ -914,7 +1090,6 @@
 
         title.addEventListener('click', function () {
             count++;
-
             clearTimeout(timer);
 
             if (count >= 3) {
@@ -941,8 +1116,8 @@
         $('manage-btn').addEventListener('click', toggleManage);
         $('theme-btn').addEventListener('click', toggleTheme);
 
-        // 列表委托
-        $('list').addEventListener('click', function (e) {
+        // 列表操作
+        listEl.addEventListener('click', function (e) {
             const btn = e.target.closest('button[data-act]');
             if (!btn || btn.disabled) return;
 
@@ -958,6 +1133,12 @@
                 if (s) openDialog(s);
             }
         });
+
+        // 拖动排序
+        listEl.addEventListener('pointerdown', onPointerDown);
+        document.addEventListener('pointermove', onPointerMove, { passive: false });
+        document.addEventListener('pointerup', onPointerUp);
+        document.addEventListener('pointercancel', onPointerUp);
 
         // 表单
         $('form').addEventListener('submit', submitForm);
