@@ -501,8 +501,9 @@ const SVG_SUN  = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><pat
 const SVG_MOON = '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
 
 /* ==================== 状态 ==================== */
-let list = [];
+/* 默认是否检测预览版本：改这里即可（无本地存储时生效） */
 let includePrerelease = true;
+let list = [];
 let checking = false;
 let restoring = false;
 let manageMode = false;
@@ -615,9 +616,14 @@ function initTheme() {
 }
 
 /* ==================== 预览版本偏好 ==================== */
+/* 关键：只有本地存储中确实存在值时才覆盖默认值；
+   没有存储值时保留代码中 includePrerelease 的默认设置。 */
 function loadPrereleasePref() {
-  try { includePrerelease = localStorage.getItem(PK) === '1'; }
-  catch (e) { includePrerelease = false; }
+  let saved = null;
+  try { saved = localStorage.getItem(PK); } catch (e) { saved = null; }
+  if (saved !== null) {
+    includePrerelease = saved === '1';
+  }
   if (el.preToggle) el.preToggle.checked = includePrerelease;
 }
 
